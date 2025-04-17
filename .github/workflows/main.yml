@@ -122,7 +122,7 @@ jobs:
 
     - name: Create Inno Setup Script
       run: |
-        $innoScript = @'
+        $content = @"
 [Setup]
 AppName=Medical Office App
 AppVersion=1.0
@@ -158,9 +158,9 @@ Name: "{autodesktop}\Medical Office App"; Filename: "{app}\MedicalOfficeApp.exe"
 
 [Run]
 Filename: "{app}\MedicalOfficeApp.exe"; Description: "{cm:LaunchProgram,Medical Office App}"; Flags: nowait postinstall skipifsilent
-'@
+"@
 
-        Set-Content -Path "installer.iss" -Value $innoScript
+        Set-Content -Path "installer.iss" -Value $content
         
         # Verify the script was created
         Get-Item "installer.iss" | Select-Object Name, Length
