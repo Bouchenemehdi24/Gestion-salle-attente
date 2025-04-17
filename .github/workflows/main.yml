@@ -35,7 +35,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install --user -r requirements.txt
+        pip install -r requirements.txt
         
     - name: Install PyInstaller
       run: |
@@ -60,6 +60,7 @@ jobs:
           --noupx ^
           --clean ^
           app.py
+      shell: cmd
         
     - name: Download Inno Setup
       run: |
@@ -104,6 +105,8 @@ jobs:
           echo UninstallDisplayIcon={app}\MedicalOfficeApp.exe
           echo MinVersion=6.1
           echo SetupIconFile=app_icon.ico
+          echo WizardImageFile=installer_image.bmp
+          echo WizardSmallImageFile=installer_small.bmp
           echo.
           echo [Languages]
           echo Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -131,10 +134,6 @@ jobs:
           echo [UninstallDelete]
           echo Type: filesandordirs; Name: "{app}\*.log"
           echo Type: filesandordirs; Name: "{app}\__pycache__"
-          echo.
-          echo [Setup]
-          echo WizardImageFile=installer_image.bmp
-          echo WizardSmallImageFile=installer_small.bmp
         ) > installer.iss
       shell: cmd
 
