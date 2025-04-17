@@ -1,0 +1,27 @@
+2025-04-17 00:49:11,905 - db_connection_pool - ERROR - [db_connection_pool.py:120] - Error with pooled connection: no such table: main.users_old_roles
+2025-04-17 00:49:11,913 - database - ERROR - [database.py:47] - Database connection failed
+Traceback (most recent call last):
+  File "E:\Waiting-room\database.py", line 45, in get_connection
+    yield conn
+  File "E:\Waiting-room\database.py", line 188, in add_audit_log
+    """, (user_id, action, now, details))
+sqlite3.OperationalError: no such table: main.users_old_roles
+2025-04-17 00:49:11,922 - database - ERROR - [database.py:193] - Failed to add audit log entry (using pooled connection) for user 1, action call_patient. Error: Failed to connect: no such table: main.users_old_roles
+2025-04-17 19:21:01,538 - db_connection_pool - ERROR - [db_connection_pool.py:120] - Error with pooled connection: no such table: main.users_old_roles
+2025-04-17 19:21:02,158 - database - ERROR - [database.py:47] - Database connection failed
+Traceback (most recent call last):
+  File "E:\Waiting-room\database.py", line 45, in get_connection
+    yield conn
+  File "E:\Waiting-room\database.py", line 185, in add_audit_log
+    cursor.execute("""
+sqlite3.OperationalError: no such table: main.users_old_roles
+2025-04-17 19:21:02,547 - database - ERROR - [database.py:193] - Failed to add audit log entry (using pooled connection) for user 1, action call_patient. Error: Failed to connect: no such table: main.users_old_roles
+2025-04-17 19:23:47,981 - db_connection_pool - ERROR - [db_connection_pool.py:120] - Error with pooled connection: no such table: main.users_old_roles
+2025-04-17 19:23:47,984 - database - ERROR - [database.py:47] - Database connection failed
+Traceback (most recent call last):
+  File "E:\Waiting-room\database.py", line 45, in get_connection
+    yield conn
+  File "E:\Waiting-room\database.py", line 185, in add_audit_log
+    cursor.execute("""
+sqlite3.OperationalError: no such table: main.users_old_roles
+2025-04-17 19:23:48,008 - database - ERROR - [database.py:193] - Failed to add audit log entry (using pooled connection) for user None, action update_patient. Error: Failed to connect: no such table: main.users_old_roles
