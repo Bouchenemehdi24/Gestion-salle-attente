@@ -120,9 +120,9 @@ jobs:
         Get-Item "installer_image.bmp", "installer_small.bmp" | Select-Object Name, Length
       shell: powershell
 
-    - name: Create Inno Setup Script (Simplified)
+    - name: Create Inno Setup Script
       run: |
-        $innoScript = @"
+        $innoScript = @'
 [Setup]
 AppName=Medical Office App
 AppVersion=1.0
@@ -148,4 +148,44 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source:
+Source: "dist\MedicalOfficeApp\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "app_icon.ico"; DestDir: "{app}"; Flags: ignoreversion
+
+[Icons]
+Name: "{group}\Medical Office App"; Filename: "{app}\MedicalOfficeApp.exe"; IconFilename: "{app}\app_icon.ico"
+Name: "{group}\{cm:UninstallProgram,Medical Office App}"; Filename: "{uninstallexe}"
+Name: "{autodesktop}\Medical Office App"; Filename: "{app}\MedicalOfficeApp.exe"; IconFilename: "{app}\app_icon.ico"; Tasks: desktopicon
+
+[Run]
+Filename: "{app}\MedicalOfficeApp.exe"; Description: "{cm:LaunchProgram,Medical Office App}"; Flags: nowait postinstall skipifsilent
+'@
+
+        Set-Content -Path "installer.iss" -Value $innoScript
+        
+        # Verify the script was created
+        Get-Item "installer.iss" | Select-Object Name, Length
+      shell: powershell
+
+    - name: Compile Installer with Inno Setup
+      run: |
+        iscc installer.iss
+      shell: cmd
+
+    - name: Upload Installer Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-installer
+        path: dist/MedicalOfficeSetup.exe
+
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: dist/MedicalOfficeSetup.exe
+        
+    - name: Status report
+      run: |
+        echo "Build completed successfully!"
+        echo "Executable size:"
+        Get-Item dist\MedicalOfficeSetup.exe | ForEach-Object { "{0:N2} MB" -f ($_.length / 1MB) }
+      shell: powershell
