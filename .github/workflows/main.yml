@@ -95,80 +95,21 @@ jobs:
         echo "C:\Program Files (x86)\Inno Setup 6" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       shell: powershell
 
-    - name: Create Inno Setup Script
+    - name: Create Simple Installer Images
       run: |
-        @echo off
-        (
-          echo [Setup]
-          echo AppName=Medical Office App
-          echo AppVersion=1.0
-          echo AppPublisher=Dr. Mohammed Mehdi Bouchene
-          echo AppPublisherURL=https://bakha-pneumo.netlify.app/
-          echo DefaultDirName={autopf}\Medical Office App
-          echo DefaultGroupName=Medical Office App
-          echo OutputDir=.\dist
-          echo OutputBaseFilename=MedicalOfficeSetup
-          echo Compression=lzma2/ultra64
-          echo SolidCompression=yes
-          echo LZMAUseSeparateProcess=yes
-          echo LZMADictionarySize=1048576
-          echo LZMANumFastBytes=273
-          echo WizardStyle=modern
-          echo UninstallDisplayIcon={app}\MedicalOfficeApp.exe
-          echo MinVersion=6.1
-          echo SetupIconFile=app_icon.ico
-          echo WizardImageFile=installer_image.bmp
-          echo WizardSmallImageFile=installer_small.bmp
-          echo DisableDirPage=no
-          echo.
-          echo [Languages]
-          echo Name: "english"; MessagesFile: "compiler:Default.isl"
-          echo.
-          echo [Tasks]
-          echo Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-          echo.
-          echo [Files]
-          echo Source: "dist\MedicalOfficeApp\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-          echo Source: "app_icon.ico"; DestDir: "{app}"; Flags: ignoreversion
-          echo ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
-          echo.
-          echo [Icons]
-          echo Name: "{group}\Medical Office App"; Filename: "{app}\MedicalOfficeApp.exe"; IconFilename: "{app}\app_icon.ico"
-          echo Name: "{group}\{cm:UninstallProgram,Medical Office App}"; Filename: "{uninstallexe}"
-          echo Name: "{autodesktop}\Medical Office App"; Filename: "{app}\MedicalOfficeApp.exe"; IconFilename: "{app}\app_icon.ico"; Tasks: desktopicon
-          echo.
-          echo [Run]
-          echo Filename: "{app}\MedicalOfficeApp.exe"; Description: "{cm:LaunchProgram,Medical Office App}"; Flags: nowait postinstall skipifsilent
-          echo.
-          echo [InstallDelete]
-          echo Type: filesandordirs; Name: "{app}\*.log"
-          echo Type: filesandordirs; Name: "{app}\__pycache__"
-          echo.
-          echo [UninstallDelete]
-          echo Type: filesandordirs; Name: "{app}\*.log"
-          echo Type: filesandordirs; Name: "{app}\__pycache__"
-        ) > installer.iss
-      shell: cmd
-
-    - name: Create Installer Images
-      run: |
-        # Create simple bitmap files for installer
-        $imageWidth = 164
-        $imageHeight = 314
-        $smallWidth = 55
-        $smallHeight = 58
-        
-        # Create main wizard image
+        # Create simple bitmap files for installer using PowerShell
         Add-Type -AssemblyName System.Drawing
-        $bitmap = New-Object System.Drawing.Bitmap $imageWidth, $imageHeight
+        
+        # Create main wizard image (simpler version)
+        $bitmap = New-Object System.Drawing.Bitmap 164, 314
         $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
         $graphics.Clear([System.Drawing.Color]::White)
         $bitmap.Save("installer_image.bmp", [System.Drawing.Imaging.ImageFormat]::Bmp)
         $graphics.Dispose()
         $bitmap.Dispose()
         
-        # Create small wizard image
-        $bitmap = New-Object System.Drawing.Bitmap $smallWidth, $smallHeight
+        # Create small wizard image (simpler version)
+        $bitmap = New-Object System.Drawing.Bitmap 55, 58
         $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
         $graphics.Clear([System.Drawing.Color]::LightBlue)
         $bitmap.Save("installer_small.bmp", [System.Drawing.Imaging.ImageFormat]::Bmp)
@@ -179,26 +120,32 @@ jobs:
         Get-Item "installer_image.bmp", "installer_small.bmp" | Select-Object Name, Length
       shell: powershell
 
-    - name: Compile Installer with Inno Setup
+    - name: Create Inno Setup Script (Simplified)
       run: |
-        iscc installer.iss
-      shell: cmd
+        $innoScript = @"
+[Setup]
+AppName=Medical Office App
+AppVersion=1.0
+AppPublisher=Dr. Mohammed Mehdi Bouchene
+AppPublisherURL=https://bakha-pneumo.netlify.app/
+DefaultDirName={autopf}\Medical Office App
+DefaultGroupName=Medical Office App
+OutputDir=.\dist
+OutputBaseFilename=MedicalOfficeSetup
+Compression=lzma
+SolidCompression=yes
+WizardStyle=modern
+UninstallDisplayIcon={app}\MedicalOfficeApp.exe
+DisableDirPage=no
+SetupIconFile=app_icon.ico
+WizardImageFile=installer_image.bmp
+WizardSmallImageFile=installer_small.bmp
 
-    - name: Upload Installer Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: windows-installer
-        path: dist/MedicalOfficeSetup.exe
+[Languages]
+Name: "english"; MessagesFile: "compiler:Default.isl"
 
-    - name: Create Release
-      if: startsWith(github.ref, 'refs/tags/')
-      uses: softprops/action-gh-release@v1
-      with:
-        files: dist/MedicalOfficeSetup.exe
-        
-    - name: Status report
-      run: |
-        echo "Build completed successfully!"
-        echo "Executable size:"
-        Get-Item dist\MedicalOfficeSetup.exe | ForEach-Object { "{0:N2} MB" -f ($_.length / 1MB) }
-      shell: powershell
+[Tasks]
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+
+[Files]
+Source:
