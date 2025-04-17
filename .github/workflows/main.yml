@@ -73,8 +73,6 @@ jobs:
           --hidden-import json `
           --hidden-import sqlite3 `
           --hidden-import logging `
-          --exclude-module _tkinter `
-          --exclude-module Tkinter `
           --exclude-module matplotlib.tests `
           --exclude-module numpy.random.tests `
           --exclude-module pandas.tests `
@@ -121,6 +119,7 @@ jobs:
           echo SetupIconFile=app_icon.ico
           echo WizardImageFile=installer_image.bmp
           echo WizardSmallImageFile=installer_small.bmp
+          echo DisableDirPage=no
           echo.
           echo [Languages]
           echo Name: "english"; MessagesFile: "compiler:Default.isl"
