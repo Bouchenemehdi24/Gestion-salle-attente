@@ -1,0 +1,178 @@
+name: Build Windows Installer
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:  # Allows manual triggering from GitHub UI
+
+env:
+  PYTHON_VERSION: 3.9
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Windows EXE
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Cache Python dependencies
+      id: cache-dependencies
+      uses: actions/cache@v3
+      with:
+        path: ./.cache/pip
+        key: ${{ runner.os }}-python-${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt') }}
+      
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install --user -r requirements.txt
+        
+    - name: Install PyInstaller
+      run: |
+        pip install pyinstaller
+        
+    - name: Build Application Directory
+      run: |
+        pyinstaller --onedir --windowed --name MedicalOfficeApp ^
+          --hidden-import babel.numbers ^
+          --hidden-import babel.dates ^
+          --hidden-import json ^
+          --hidden-import sqlite3 ^
+          --hidden-import logging ^
+          --exclude-module _tkinter ^
+          --exclude-module Tkinter ^
+          --exclude-module matplotlib.tests ^
+          --exclude-module numpy.random.tests ^
+          --exclude-module pandas.tests ^
+          --exclude-module unittest ^
+          --exclude-module doctest ^
+          --icon=app_icon.ico ^
+          --noupx ^
+          --clean ^
+          app.py
+        
+    - name: Download Inno Setup
+      run: |
+        curl -L -o innosetup.exe "https://files.jrsoftware.org/is/6/innosetup-6.2.2.exe"
+      shell: bash
+
+    - name: Install Inno Setup
+      run: |
+        ./innosetup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-
+        echo "C:\Program Files (x86)\Inno Setup 6" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      shell: powershell
+
+    - name: Create App Icon
+      run: |
+        # Create a simple placeholder icon if not exists
+        if (-not (Test-Path -Path "app_icon.ico")) {
+          # Download a generic medical icon
+          Invoke-WebRequest -Uri "https://www.example.com/medical-icon.ico" -OutFile "app_icon.ico"
+          # Note: Replace the URL with a real icon URL or create locally before running the workflow
+        }
+      shell: powershell
+
+    - name: Create Inno Setup Script
+      run: |
+        @echo off
+        (
+          echo [Setup]
+          echo AppName=Medical Office App
+          echo AppVersion=1.0
+          echo AppPublisher=Dr. Mohammed Mehdi Bouchene
+          echo AppPublisherURL=https://bakha-pneumo.netlify.app/
+          echo DefaultDirName={autopf}\Medical Office App
+          echo DefaultGroupName=Medical Office App
+          echo OutputDir=.\dist
+          echo OutputBaseFilename=MedicalOfficeSetup
+          echo Compression=lzma2/ultra64
+          echo SolidCompression=yes
+          echo LZMAUseSeparateProcess=yes
+          echo LZMADictionarySize=1048576
+          echo LZMANumFastBytes=273
+          echo WizardStyle=modern
+          echo UninstallDisplayIcon={app}\MedicalOfficeApp.exe
+          echo MinVersion=6.1
+          echo SetupIconFile=app_icon.ico
+          echo.
+          echo [Languages]
+          echo Name: "english"; MessagesFile: "compiler:Default.isl"
+          echo.
+          echo [Tasks]
+          echo Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+          echo.
+          echo [Files]
+          echo Source: "dist\MedicalOfficeApp\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+          echo Source: "app_icon.ico"; DestDir: "{app}"; Flags: ignoreversion
+          echo ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
+          echo.
+          echo [Icons]
+          echo Name: "{group}\Medical Office App"; Filename: "{app}\MedicalOfficeApp.exe"; IconFilename: "{app}\app_icon.ico"
+          echo Name: "{group}\{cm:UninstallProgram,Medical Office App}"; Filename: "{uninstallexe}"
+          echo Name: "{autodesktop}\Medical Office App"; Filename: "{app}\MedicalOfficeApp.exe"; IconFilename: "{app}\app_icon.ico"; Tasks: desktopicon
+          echo.
+          echo [Run]
+          echo Filename: "{app}\MedicalOfficeApp.exe"; Description: "{cm:LaunchProgram,Medical Office App}"; Flags: nowait postinstall skipifsilent
+          echo.
+          echo [InstallDelete]
+          echo Type: filesandordirs; Name: "{app}\*.log"
+          echo Type: filesandordirs; Name: "{app}\__pycache__"
+          echo.
+          echo [UninstallDelete]
+          echo Type: filesandordirs; Name: "{app}\*.log"
+          echo Type: filesandordirs; Name: "{app}\__pycache__"
+          echo.
+          echo [Setup]
+          echo WizardImageFile=installer_image.bmp
+          echo WizardSmallImageFile=installer_small.bmp
+        ) > installer.iss
+      shell: cmd
+
+    - name: Create Installer Images
+      run: |
+        # This is a placeholder for creating or downloading the installer images
+        # In a real scenario, you would have these images in your repo
+        # or generate them programmatically
+        
+        # Create a simple text file as placeholder if images don't exist
+        if (-not (Test-Path -Path "installer_image.bmp")) {
+          echo "Placeholder for installer image" > installer_image.txt
+        }
+        if (-not (Test-Path -Path "installer_small.bmp")) {
+          echo "Placeholder for small installer image" > installer_small.txt
+        }
+      shell: powershell
+
+    - name: Compile Installer with Inno Setup
+      run: |
+        iscc installer.iss
+      shell: cmd
+
+    - name: Upload Installer Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-installer
+        path: dist/MedicalOfficeSetup.exe
+
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: dist/MedicalOfficeSetup.exe
+        
+    - name: Status report
+      run: |
+        echo "Build completed successfully!"
+        echo "Executable size:"
+        Get-Item dist\MedicalOfficeSetup.exe | ForEach-Object { "{0:N2} MB" -f ($_.length / 1MB) }
+      shell: powershell
