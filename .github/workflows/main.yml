@@ -24,6 +24,19 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Verify icon file
+      run: |
+        echo "Current directory: $(Get-Location)"
+        echo "Icon file exists: $(Test-Path app_icon.ico)"
+        if (Test-Path app_icon.ico) {
+          echo "Icon file size: $((Get-Item app_icon.ico).Length) bytes"
+        } else {
+          echo "WARNING: Icon file not found!"
+          echo "Files in directory:"
+          Get-ChildItem
+        }
+      shell: powershell
         
     - name: Cache Python dependencies
       id: cache-dependencies
@@ -43,24 +56,35 @@ jobs:
         
     - name: Build Application Directory
       run: |
-        pyinstaller --onedir --windowed --name MedicalOfficeApp ^
-          --hidden-import babel.numbers ^
-          --hidden-import babel.dates ^
-          --hidden-import json ^
-          --hidden-import sqlite3 ^
-          --hidden-import logging ^
-          --exclude-module _tkinter ^
-          --exclude-module Tkinter ^
-          --exclude-module matplotlib.tests ^
-          --exclude-module numpy.random.tests ^
-          --exclude-module pandas.tests ^
-          --exclude-module unittest ^
-          --exclude-module doctest ^
-          --icon=app_icon.ico ^
-          --noupx ^
-          --clean ^
+        # Setting the icon path with double quotes to handle spaces
+        $iconPath = "$((Get-Location).Path)\app_icon.ico"
+        Write-Host "Using icon at path: $iconPath"
+        
+        # Check if icon exists before running PyInstaller
+        if (-not (Test-Path $iconPath)) {
+          Write-Host "ERROR: Icon file not found at $iconPath"
+          exit 1
+        }
+        
+        # Run PyInstaller with the icon path
+        pyinstaller --onedir --windowed --name MedicalOfficeApp `
+          --hidden-import babel.numbers `
+          --hidden-import babel.dates `
+          --hidden-import json `
+          --hidden-import sqlite3 `
+          --hidden-import logging `
+          --exclude-module _tkinter `
+          --exclude-module Tkinter `
+          --exclude-module matplotlib.tests `
+          --exclude-module numpy.random.tests `
+          --exclude-module pandas.tests `
+          --exclude-module unittest `
+          --exclude-module doctest `
+          --icon="$iconPath" `
+          --noupx `
+          --clean `
           app.py
-      shell: cmd
+      shell: powershell
         
     - name: Download Inno Setup
       run: |
@@ -71,16 +95,6 @@ jobs:
       run: |
         ./innosetup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-
         echo "C:\Program Files (x86)\Inno Setup 6" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-      shell: powershell
-
-    - name: Create App Icon
-      run: |
-        # Create a simple placeholder icon if not exists
-        if (-not (Test-Path -Path "app_icon.ico")) {
-          # Download a generic medical icon
-          Invoke-WebRequest -Uri "https://www.example.com/medical-icon.ico" -OutFile "app_icon.ico"
-          # Note: Replace the URL with a real icon URL or create locally before running the workflow
-        }
       shell: powershell
 
     - name: Create Inno Setup Script
@@ -139,17 +153,31 @@ jobs:
 
     - name: Create Installer Images
       run: |
-        # This is a placeholder for creating or downloading the installer images
-        # In a real scenario, you would have these images in your repo
-        # or generate them programmatically
+        # Create simple bitmap files for installer
+        $imageWidth = 164
+        $imageHeight = 314
+        $smallWidth = 55
+        $smallHeight = 58
         
-        # Create a simple text file as placeholder if images don't exist
-        if (-not (Test-Path -Path "installer_image.bmp")) {
-          echo "Placeholder for installer image" > installer_image.txt
-        }
-        if (-not (Test-Path -Path "installer_small.bmp")) {
-          echo "Placeholder for small installer image" > installer_small.txt
-        }
+        # Create main wizard image
+        Add-Type -AssemblyName System.Drawing
+        $bitmap = New-Object System.Drawing.Bitmap $imageWidth, $imageHeight
+        $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+        $graphics.Clear([System.Drawing.Color]::White)
+        $bitmap.Save("installer_image.bmp", [System.Drawing.Imaging.ImageFormat]::Bmp)
+        $graphics.Dispose()
+        $bitmap.Dispose()
+        
+        # Create small wizard image
+        $bitmap = New-Object System.Drawing.Bitmap $smallWidth, $smallHeight
+        $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+        $graphics.Clear([System.Drawing.Color]::LightBlue)
+        $bitmap.Save("installer_small.bmp", [System.Drawing.Imaging.ImageFormat]::Bmp)
+        $graphics.Dispose()
+        $bitmap.Dispose()
+        
+        # Verify images exist
+        Get-Item "installer_image.bmp", "installer_small.bmp" | Select-Object Name, Length
       shell: powershell
 
     - name: Compile Installer with Inno Setup
