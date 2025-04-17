@@ -3,7 +3,6 @@ name: Build Windows Installer
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:  # Allows manual triggering from GitHub UI
 
 env:
   PYTHON_VERSION: 3.9
@@ -24,31 +23,18 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: ${{ env.PYTHON_VERSION }}
-    
-    - name: Verify icon file
-      run: |
-        echo "Current directory: $(Get-Location)"
-        echo "Icon file exists: $(Test-Path app_icon.ico)"
-        if (Test-Path app_icon.ico) {
-          echo "Icon file size: $((Get-Item app_icon.ico).Length) bytes"
-        } else {
-          echo "WARNING: Icon file not found!"
-          echo "Files in directory:"
-          Get-ChildItem
-        }
-      shell: powershell
         
     - name: Cache Python dependencies
       id: cache-dependencies
       uses: actions/cache@v3
       with:
         path: ./.cache/pip
-        key: ${{ runner.os }}-python-${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt') }}
+        key: ${{ runner.os }}-python-${{ env.PYTHON_VERSION }}-deps
       
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        pip install --user -r requirements.txt
         
     - name: Install PyInstaller
       run: |
@@ -56,33 +42,7 @@ jobs:
         
     - name: Build Application Directory
       run: |
-        # Setting the icon path with double quotes to handle spaces
-        $iconPath = "$((Get-Location).Path)\app_icon.ico"
-        Write-Host "Using icon at path: $iconPath"
-        
-        # Check if icon exists before running PyInstaller
-        if (-not (Test-Path $iconPath)) {
-          Write-Host "ERROR: Icon file not found at $iconPath"
-          exit 1
-        }
-        
-        # Run PyInstaller with the icon path
-        pyinstaller --onedir --windowed --name MedicalOfficeApp `
-          --hidden-import babel.numbers `
-          --hidden-import babel.dates `
-          --hidden-import json `
-          --hidden-import sqlite3 `
-          --hidden-import logging `
-          --exclude-module matplotlib.tests `
-          --exclude-module numpy.random.tests `
-          --exclude-module pandas.tests `
-          --exclude-module unittest `
-          --exclude-module doctest `
-          --icon="$iconPath" `
-          --noupx `
-          --clean `
-          app.py
-      shell: powershell
+        pyinstaller --onedir --windowed --name MedicalOfficeApp --hidden-import babel.numbers --hidden-import babel.dates --hidden-import json --hidden-import sqlite3 --hidden-import logging app.py
         
     - name: Download Inno Setup
       run: |
@@ -95,76 +55,41 @@ jobs:
         echo "C:\Program Files (x86)\Inno Setup 6" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       shell: powershell
 
-    - name: Create Simple Installer Images
-      run: |
-        # Create simple bitmap files for installer using PowerShell
-        Add-Type -AssemblyName System.Drawing
-        
-        # Create main wizard image (simpler version)
-        $bitmap = New-Object System.Drawing.Bitmap 164, 314
-        $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-        $graphics.Clear([System.Drawing.Color]::White)
-        $bitmap.Save("installer_image.bmp", [System.Drawing.Imaging.ImageFormat]::Bmp)
-        $graphics.Dispose()
-        $bitmap.Dispose()
-        
-        # Create small wizard image (simpler version)
-        $bitmap = New-Object System.Drawing.Bitmap 55, 58
-        $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-        $graphics.Clear([System.Drawing.Color]::LightBlue)
-        $bitmap.Save("installer_small.bmp", [System.Drawing.Imaging.ImageFormat]::Bmp)
-        $graphics.Dispose()
-        $bitmap.Dispose()
-        
-        # Verify images exist
-        Get-Item "installer_image.bmp", "installer_small.bmp" | Select-Object Name, Length
-      shell: powershell
-
     - name: Create Inno Setup Script
       run: |
-        $content = @"
-[Setup]
-AppName=Medical Office App
-AppVersion=1.0
-AppPublisher=Dr. Mohammed Mehdi Bouchene
-AppPublisherURL=https://bakha-pneumo.netlify.app/
-DefaultDirName={autopf}\Medical Office App
-DefaultGroupName=Medical Office App
-OutputDir=.\dist
-OutputBaseFilename=MedicalOfficeSetup
-Compression=lzma
-SolidCompression=yes
-WizardStyle=modern
-UninstallDisplayIcon={app}\MedicalOfficeApp.exe
-DisableDirPage=no
-SetupIconFile=app_icon.ico
-WizardImageFile=installer_image.bmp
-WizardSmallImageFile=installer_small.bmp
-
-[Languages]
-Name: "english"; MessagesFile: "compiler:Default.isl"
-
-[Tasks]
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-
-[Files]
-Source: "dist\MedicalOfficeApp\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "app_icon.ico"; DestDir: "{app}"; Flags: ignoreversion
-
-[Icons]
-Name: "{group}\Medical Office App"; Filename: "{app}\MedicalOfficeApp.exe"; IconFilename: "{app}\app_icon.ico"
-Name: "{group}\{cm:UninstallProgram,Medical Office App}"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\Medical Office App"; Filename: "{app}\MedicalOfficeApp.exe"; IconFilename: "{app}\app_icon.ico"; Tasks: desktopicon
-
-[Run]
-Filename: "{app}\MedicalOfficeApp.exe"; Description: "{cm:LaunchProgram,Medical Office App}"; Flags: nowait postinstall skipifsilent
-"@
-
-        Set-Content -Path "installer.iss" -Value $content
-        
-        # Verify the script was created
-        Get-Item "installer.iss" | Select-Object Name, Length
-      shell: powershell
+        @echo off
+        (
+          echo [Setup]
+          echo AppName=Medical Office App
+          echo AppVersion=1.0
+          echo DefaultDirName={autopf}\Medical Office App
+          echo DefaultGroupName=Medical Office App
+          echo OutputDir=.\dist
+          echo OutputBaseFilename=MedicalOfficeSetup
+          echo Compression=lzma
+          echo SolidCompression=yes
+          echo WizardStyle=modern
+          echo UninstallDisplayIcon={app}\MedicalOfficeApp.exe
+          echo.
+          echo [Languages]
+          echo Name: "english"; MessagesFile: "compiler:Default.isl"
+          echo.
+          echo [Tasks]
+          echo Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+          echo.
+          echo [Files]
+          echo Source: "dist\MedicalOfficeApp\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+          echo ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
+          echo.
+          echo [Icons]
+          echo Name: "{group}\Medical Office App"; Filename: "{app}\MedicalOfficeApp.exe"
+          echo Name: "{group}\{cm:UninstallProgram,Medical Office App}"; Filename: "{uninstallexe}"
+          echo Name: "{autodesktop}\Medical Office App"; Filename: "{app}\MedicalOfficeApp.exe"; Tasks: desktopicon
+          echo.
+          echo [Run]
+          echo Filename: "{app}\MedicalOfficeApp.exe"; Description: "{cm:LaunchProgram,Medical Office App}"; Flags: nowait postinstall skipifsilent
+        ) > installer.iss
+      shell: cmd
 
     - name: Compile Installer with Inno Setup
       run: |
@@ -182,10 +107,14 @@ Filename: "{app}\MedicalOfficeApp.exe"; Description: "{cm:LaunchProgram,Medical 
       uses: softprops/action-gh-release@v1
       with:
         files: dist/MedicalOfficeSetup.exe
+      
+    - name: Error handling and cleanup
+      if: failure()
+      run: |
+        echo "Build failed. Cleaning up..."
+        if (Test-Path dist) { Remove-Item -Recurse -Force dist }
+      shell: powershell
         
     - name: Status report
       run: |
         echo "Build completed successfully!"
-        echo "Executable size:"
-        Get-Item dist\MedicalOfficeSetup.exe | ForEach-Object { "{0:N2} MB" -f ($_.length / 1MB) }
-      shell: powershell
