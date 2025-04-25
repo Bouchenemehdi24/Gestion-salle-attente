@@ -3,118 +3,70 @@ name: Build Windows Installer
 on:
   push:
     branches: [ main ]
-
-env:
-  PYTHON_VERSION: 3.9
-
-permissions:
-  contents: write
+  pull_request:
+    branches: [ main ]
+  release:
+    types: [created]
 
 jobs:
   build:
-    name: Build Windows EXE
     runs-on: windows-latest
     
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
-      
-    - name: Set up Python
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python 3.10
       uses: actions/setup-python@v4
       with:
-        python-version: ${{ env.PYTHON_VERSION }}
-        
-    - name: Cache Python dependencies
-      id: cache-dependencies
-      uses: actions/cache@v3
-      with:
-        path: ./.cache/pip
-        key: ${{ runner.os }}-python-${{ env.PYTHON_VERSION }}-deps
-      
-    - name: Install dependencies
+        python-version: '3.10'
+        cache: 'pip'
+    
+    - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install --user -r requirements.txt
-        
-    - name: Install PyInstaller
-      run: |
+        pip install -r requirements.txt
         pip install pyinstaller
-        
-    - name: Build Application Directory
-      run: |
-        pyinstaller --onedir --windowed --name MedicalOfficeApp --hidden-import babel.numbers --hidden-import babel.dates --hidden-import json --hidden-import sqlite3 --hidden-import logging app.py
-        
-    - name: Download Inno Setup
-      run: |
-        curl -L -o innosetup.exe "https://files.jrsoftware.org/is/6/innosetup-6.2.2.exe"
-      shell: bash
-
+    
     - name: Install Inno Setup
       run: |
-        ./innosetup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-
-        echo "C:\Program Files (x86)\Inno Setup 6" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-      shell: powershell
-
+        choco install innosetup -y
+    
+    - name: Build with PyInstaller
+      run: |
+        pyinstaller app.spec --noconfirm --clean
+    
     - name: Create Inno Setup Script
       run: |
-        @echo off
-        (
-          echo [Setup]
-          echo AppName=Medical Office App
-          echo AppVersion=1.0
-          echo DefaultDirName={autopf}\Medical Office App
-          echo DefaultGroupName=Medical Office App
-          echo OutputDir=.\dist
-          echo OutputBaseFilename=MedicalOfficeSetup
-          echo Compression=lzma
-          echo SolidCompression=yes
-          echo WizardStyle=modern
-          echo UninstallDisplayIcon={app}\MedicalOfficeApp.exe
-          echo.
-          echo [Languages]
-          echo Name: "english"; MessagesFile: "compiler:Default.isl"
-          echo.
-          echo [Tasks]
-          echo Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-          echo.
-          echo [Files]
-          echo Source: "dist\MedicalOfficeApp\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-          echo ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
-          echo.
-          echo [Icons]
-          echo Name: "{group}\Medical Office App"; Filename: "{app}\MedicalOfficeApp.exe"
-          echo Name: "{group}\{cm:UninstallProgram,Medical Office App}"; Filename: "{uninstallexe}"
-          echo Name: "{autodesktop}\Medical Office App"; Filename: "{app}\MedicalOfficeApp.exe"; Tasks: desktopicon
-          echo.
-          echo [Run]
-          echo Filename: "{app}\MedicalOfficeApp.exe"; Description: "{cm:LaunchProgram,Medical Office App}"; Flags: nowait postinstall skipifsilent
-        ) > installer.iss
-      shell: cmd
-
-    - name: Compile Installer with Inno Setup
+        echo "[Setup]" > installer.iss
+        echo "AppName=Cabinet Medical" >> installer.iss
+        echo "AppVersion=0.1" >> installer.iss
+        echo "DefaultDirName={autopf}\Cabinet Medical" >> installer.iss
+        echo "DefaultGroupName=Cabinet Medical" >> installer.iss
+        echo "OutputBaseFilename=CabinetMedical_Setup" >> installer.iss
+        echo "Compression=lzma" >> installer.iss
+        echo "SolidCompression=yes" >> installer.iss
+        echo. >> installer.iss
+        echo "[Files]" >> installer.iss
+        echo "Source: ""dist\app\*""; DestDir: ""{app}""; Flags: recursesubdirs" >> installer.iss
+        echo "Source: ""assets\*""; DestDir: ""{app}\assets""; Flags: recursesubdirs" >> installer.iss
+        echo "Source: ""medical_office.db""; DestDir: ""{app}""; Flags: onlyifdoesntexist" >> installer.iss
+        echo. >> installer.iss
+        echo "[Icons]" >> installer.iss
+        echo "Name: ""{group}\Cabinet Medical""; Filename: ""{app}\app.exe""" >> installer.iss
+        echo "Name: ""{commondesktop}\Cabinet Medical""; Filename: ""{app}\app.exe""" >> installer.iss
+    
+    - name: Build Installer
       run: |
-        iscc installer.iss
-      shell: cmd
-
-    - name: Upload Installer Artifact
-      uses: actions/upload-artifact@v4
+        "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+    
+    - name: Upload Installer
+      uses: actions/upload-artifact@v3
       with:
-        name: windows-installer
-        path: dist/MedicalOfficeSetup.exe
-
-    - name: Create Release
-      if: startsWith(github.ref, 'refs/tags/')
+        name: CabinetMedical-Installer
+        path: Output/CabinetMedical_Setup.exe
+        
+    - name: Upload to Release
+      if: github.event_name == 'release'
       uses: softprops/action-gh-release@v1
       with:
-        files: dist/MedicalOfficeSetup.exe
-      
-    - name: Error handling and cleanup
-      if: failure()
-      run: |
-        echo "Build failed. Cleaning up..."
-        if (Test-Path dist) { Remove-Item -Recurse -Force dist }
-      shell: powershell
-        
-    - name: Status report
-      run: |
-        echo "Build completed successfully!"
+        files: Output/CabinetMedical_Setup.exe
