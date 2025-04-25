@@ -1,86 +1,149 @@
+# Workflow name
 name: Build Windows Installer
 
+# Controls when the workflow will run
 on:
+  # Triggers the workflow on push events but only for the main branch
   push:
     branches: [ main ]
+  # Triggers the workflow on pull request events but only for the main branch
   pull_request:
     branches: [ main ]
+  # Triggers the workflow when a release is created
   release:
     types: [created]
 
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
+  # This workflow contains a single job called "build"
   build:
+    # The type of runner that the job will run on - using the latest Windows runner
     runs-on: windows-latest
-    
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-    
-    - name: Set up Python 3.10
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
-        cache: 'pip'
-        check-latest: true
-    
-    - name: Install Python dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pyinstaller
-      continue-on-error: false
-    
-    - name: Install Inno Setup
-      run: |
-        choco install innosetup --no-progress -y
-      continue-on-error: false
-    
-    - name: Build with PyInstaller
-      run: |
-        pyinstaller app.spec --noconfirm --clean
-      continue-on-error: false
-    
-    - name: Create Inno Setup Script
-      run: |
-        echo "[Setup]" > installer.iss
-        echo "AppName=Cabinet Medical" >> installer.iss
-        echo "AppVersion=0.1" >> installer.iss
-        echo "DefaultDirName={autopf}\Cabinet Medical" >> installer.iss
-        echo "DefaultGroupName=Cabinet Medical" >> installer.iss
-        echo "OutputBaseFilename=CabinetMedical_Setup" >> installer.iss
-        echo "Compression=lzma" >> installer.iss
-        echo "SolidCompression=yes" >> installer.iss
-        echo "UninstallDisplayIcon={app}\app.exe" >> installer.iss
-        echo. >> installer.iss
-        echo "[Files]" >> installer.iss
-        echo "Source: ""dist\app\*""; DestDir: ""{app}""; Flags: recursesubdirs" >> installer.iss
-        echo "Source: ""assets\*""; DestDir: ""{app}\assets""; Flags: recursesubdirs" >> installer.iss
-        echo "Source: ""medical_office.db""; DestDir: ""{app}""; Flags: onlyifdoesntexist" >> installer.iss
-        echo. >> installer.iss
-        echo "[Icons]" >> installer.iss
-        echo "Name: ""{group}\Cabinet Medical""; Filename: ""{app}\app.exe""" >> installer.iss
-        echo "Name: ""{commondesktop}\Cabinet Medical""; Filename: ""{app}\app.exe""" >> installer.iss
-      shell: cmd
-    
-    - name: Build Installer
-      run: |
-        "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
-      continue-on-error: false
-    
-    - name: Upload Installer Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: CabinetMedical-Installer
-        path: Output/CabinetMedical_Setup.exe
-        retention-days: 5
-        if-no-files-found: error
-        
-    - name: Upload to Release
-      if: github.event_name == 'release'
-      uses: softprops/action-gh-release@v2
-      with:
-        files: Output/CabinetMedical_Setup.exe
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Step 1: Check out the repository code
+      # Uses the checkout action v4 to get the code
+      # fetch-depth: 0 fetches all history for all branches and tags,
+      # which might be needed for versioning based on tags. Remove if not needed.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Step 2: Set up Python environment
+      # Uses the setup-python action v5
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          # Specifies the Python version
+          python-version: '3.10'
+          # Caches pip dependencies for faster subsequent runs
+          cache: 'pip'
+          # Ensures the latest available patch version for 3.10 is used
+          check-latest: true
+
+      # Step 3: Install Python dependencies
+      # Upgrades pip and installs packages from requirements.txt and pyinstaller
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+        # Fails the workflow if this step errors
+        continue-on-error: false
+
+      # Step 4: Install Inno Setup using Chocolatey
+      # --no-progress reduces log output, -y confirms automatically
+      - name: Install Inno Setup
+        run: |
+          choco install innosetup --no-progress -y
+        # Fails the workflow if this step errors
+        continue-on-error: false
+
+      # Step 5: Build the executable using PyInstaller
+      # Uses the app.spec file for configuration
+      # --noconfirm avoids prompts, --clean removes temporary files before build
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller app.spec --noconfirm --clean
+        # Fails the workflow if this step errors
+        continue-on-error: false
+
+      # Step 6: Create the Inno Setup script (installer.iss) dynamically
+      # Uses cmd shell for compatibility with echo redirection syntax
+      - name: Create Inno Setup Script
+        shell: cmd
+        run: |
+          echo [Setup] > installer.iss
+          echo AppName=Cabinet Medical >> installer.iss
+          echo AppVersion=0.1 >> installer.iss
+          REM Use {autopf} for Program Files (respects 32/64 bit)
+          echo DefaultDirName={autopf}\Cabinet Medical >> installer.iss
+          echo DefaultGroupName=Cabinet Medical >> installer.iss
+          echo OutputBaseFilename=CabinetMedical_Setup >> installer.iss
+          echo Compression=lzma >> installer.iss
+          echo SolidCompression=yes >> installer.iss
+          REM Sets the icon shown in Add/Remove Programs
+          echo UninstallDisplayIcon={app}\app.exe >> installer.iss
+          REM Specifies the output directory for the setup file
+          echo OutputDir=Output >> installer.iss
+          echo. >> installer.iss
+          echo [Files] >> installer.iss
+          REM Include all files from the PyInstaller output directory
+          echo Source: "dist\app\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs >> installer.iss
+          REM Include asset files
+          echo Source: "assets\*"; DestDir: "{app}\assets"; Flags: recursesubdirs createallsubdirs >> installer.iss
+          REM Include the database file, but don't overwrite if it exists (e.g., during repair/reinstall)
+          echo Source: "medical_office.db"; DestDir: "{app}"; Flags: onlyifdoesntexist >> installer.iss
+          echo. >> installer.iss
+          echo [Icons] >> installer.iss
+          REM Create Start Menu icon
+          echo Name: "{group}\Cabinet Medical"; Filename: "{app}\app.exe" >> installer.iss
+          REM Create Desktop icon (optional, consider user preference)
+          echo Name: "{commondesktop}\Cabinet Medical"; Filename: "{app}\app.exe"; Tasks: desktopicon >> installer.iss
+          echo. >> installer.iss
+          echo [Tasks] >> installer.iss
+          REM Optional task to create a desktop icon
+          echo Name: desktopicon; Description: "Create a desktop icon"; GroupDescription: "Additional icons:"; Flags: unchecked >> installer.iss
+          echo. >> installer.iss
+          echo [Run] >> installer.iss
+          REM Optionally run the application after install
+          REM echo Filename: "{app}\app.exe"; Description: "Launch Cabinet Medical"; Flags: nowait postinstall skipifsilent >> installer.iss
+
+      # Step 7: Compile the Inno Setup script to create the installer
+      # Assumes default Inno Setup installation path
+      - name: Build Installer
+        run: |
+          "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+        # Fails the workflow if this step errors
+        continue-on-error: false
+
+      # Step 8: Upload the installer as a workflow artifact
+      # Uses upload-artifact action v4
+      # This allows downloading the installer from the Actions tab in GitHub
+      - name: Upload Installer Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          # Name of the artifact zip file
+          name: CabinetMedical-Installer
+          # Path to the file(s) to upload
+          path: Output/CabinetMedical_Setup.exe
+          # How long to keep the artifact (e.g., 5 days)
+          retention-days: 5
+          # Fail the step if no files are found at the specified path
+          if-no-files-found: error
+
+      # Step 9: Upload the installer to the GitHub Release
+      # This step only runs if the workflow was triggered by a release event
+      # Uses softprops/action-gh-release action v2
+      - name: Upload to Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          # Files to attach to the release
+          files: Output/CabinetMedical_Setup.exe
+        env:
+          # The GITHUB_TOKEN is required to interact with the GitHub API
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
