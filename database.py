@@ -138,12 +138,49 @@ class DatabaseManager:
                     self.logger.debug("'phone_number' column already exists in 'patients' table.")
                 else:
                     raise # Re-raise other operational errors
+
+            # Add new health monitoring fields if not exist
+            try:
+                cursor.execute("ALTER TABLE patients ADD COLUMN blood_pressure_systolic INTEGER NULL;")
+                self.logger.info("Added 'blood_pressure_systolic' column to 'patients' table.")
+            except sqlite3.OperationalError as e:
+                if "duplicate column name" in str(e).lower():
+                    self.logger.debug("'blood_pressure_systolic' column already exists in 'patients' table.")
+                else:
+                    raise
+
+            try:
+                cursor.execute("ALTER TABLE patients ADD COLUMN blood_pressure_diastolic INTEGER NULL;")
+                self.logger.info("Added 'blood_pressure_diastolic' column to 'patients' table.")
+            except sqlite3.OperationalError as e:
+                if "duplicate column name" in str(e).lower():
+                    self.logger.debug("'blood_pressure_diastolic' column already exists in 'patients' table.")
+                else:
+                    raise
+
+            try:
+                cursor.execute("ALTER TABLE patients ADD COLUMN oxygen_saturation INTEGER NULL;")
+                self.logger.info("Added 'oxygen_saturation' column to 'patients' table.")
+            except sqlite3.OperationalError as e:
+                if "duplicate column name" in str(e).lower():
+                    self.logger.debug("'oxygen_saturation' column already exists in 'patients' table.")
+                else:
+                    raise
+
+            try:
+                cursor.execute("ALTER TABLE patients ADD COLUMN heart_rate INTEGER NULL;")
+                self.logger.info("Added 'heart_rate' column to 'patients' table.")
+            except sqlite3.OperationalError as e:
+                if "duplicate column name" in str(e).lower():
+                    self.logger.debug("'heart_rate' column already exists in 'patients' table.")
+                else:
+                    raise
             
             conn.commit()
             self.logger.info("Database schema initialized/verified and columns/indexes created/verified.") # Updated log
 
-    def add_patient(self, name, phone_number=None): # Added phone_number parameter
-        self.logger.info(f"Adding new patient: {name}, Phone: {phone_number if phone_number else 'N/A'}")
+    def add_patient(self, name, phone_number=None, blood_pressure_systolic=None, blood_pressure_diastolic=None, oxygen_saturation=None, heart_rate=None):
+        self.logger.info(f"Adding new patient: {name}, Phone: {phone_number if phone_number else 'N/A'}, BP: {blood_pressure_systolic}/{blood_pressure_diastolic}, O2: {oxygen_saturation}, HR: {heart_rate}")
         if not name or not name.strip():
             self.logger.error("Attempted to add patient with empty name")
             raise ValueError("Patient name cannot be empty")
@@ -162,8 +199,8 @@ class DatabaseManager:
                     return existing['patient_id']
                 
                 cursor.execute(
-                    "INSERT INTO patients (name, phone_number, first_seen_date) VALUES (?, ?, ?)", # Added phone_number to insert
-                    (name, phone_number, now)
+                    "INSERT INTO patients (name, phone_number, blood_pressure_systolic, blood_pressure_diastolic, oxygen_saturation, heart_rate, first_seen_date) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (name, phone_number, blood_pressure_systolic, blood_pressure_diastolic, oxygen_saturation, heart_rate, now)
                 )
                 conn.commit()
                 patient_id = cursor.lastrowid
@@ -522,9 +559,9 @@ class DatabaseManager:
             self.logger.exception(f"Database error during deletion of patient ID {patient_id}")
             raise DatabaseOperationError(f"Failed to delete patient: {str(e)}")
 
-    def update_patient(self, patient_id, name, phone_number, user_id):
-        """Updates a patient's name and phone number."""
-        self.logger.info(f"Attempting to update patient ID: {patient_id} with Name: {name}, Phone: {phone_number} by User ID: {user_id}")
+    def update_patient(self, patient_id, name, phone_number, blood_pressure_systolic=None, blood_pressure_diastolic=None, oxygen_saturation=None, heart_rate=None, user_id=None):
+        """Updates a patient's name, phone number, and health fields."""
+        self.logger.info(f"Attempting to update patient ID: {patient_id} with Name: {name}, Phone: {phone_number}, BP: {blood_pressure_systolic}/{blood_pressure_diastolic}, O2: {oxygen_saturation}, HR: {heart_rate} by User ID: {user_id}")
         if not name or not name.strip():
             self.logger.error(f"Attempted to update patient ID {patient_id} with empty name.")
             raise ValueError("Patient name cannot be empty")
@@ -533,14 +570,12 @@ class DatabaseManager:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
-                    "UPDATE patients SET name = ?, phone_number = ? WHERE patient_id = ?",
-                    (name, phone_number, patient_id)
+                    "UPDATE patients SET name = ?, phone_number = ?, blood_pressure_systolic = ?, blood_pressure_diastolic = ?, oxygen_saturation = ?, heart_rate = ? WHERE patient_id = ?",
+                    (name, phone_number, blood_pressure_systolic, blood_pressure_diastolic, oxygen_saturation, heart_rate, patient_id)
                 )
                 
                 if cursor.rowcount == 0:
                     self.logger.warning(f"Patient with ID {patient_id} not found for update.")
-                    # Optionally raise an error if the patient must exist
-                    # raise DatabaseOperationError(f"Patient with ID {patient_id} not found.")
                     return False # Indicate patient not found or no change needed
 
                 conn.commit()
@@ -548,7 +583,6 @@ class DatabaseManager:
                 self.add_audit_log(user_id, "update_patient", f"Patient ID: {patient_id}, Name: {name}, Phone: {phone_number}")
                 return True
         except sqlite3.IntegrityError as e:
-             # This might happen if the new name conflicts with another existing patient's unique name
             self.logger.error(f"Integrity error updating patient ID {patient_id}: {str(e)}")
             raise DatabaseOperationError(f"Patient name conflict or other integrity issue: {str(e)}")
         except sqlite3.Error as e:
@@ -562,7 +596,7 @@ class DatabaseManager:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
-                    "SELECT patient_id, name, phone_number FROM patients WHERE patient_id = ?", 
+                    "SELECT patient_id, name, phone_number, blood_pressure_systolic, blood_pressure_diastolic, oxygen_saturation, heart_rate FROM patients WHERE patient_id = ?", 
                     (patient_id,)
                 )
                 patient = cursor.fetchone()

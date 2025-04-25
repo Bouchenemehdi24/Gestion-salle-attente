@@ -1,5 +1,5 @@
 __version__ = '1.0.0'
-__app_name__ = 'Cabinet Medical'
+__app_name__ = 'Logiciel de gestion salle d\'attente'
 __description__ = 'Application de Gestion de Cabinet Medical'
-__author__ = 'Bouchene Med Mehdi'
+__author__ = 'Dr. Bouchene Mohammed Mehdi'
 __company_name__ = 'None'

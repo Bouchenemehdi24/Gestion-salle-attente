@@ -38,6 +38,12 @@ class UserManagementDialog:
             messagebox.showerror("Error", "Please fill in all fields.", parent=self.top)
             return
 
+        # Check if username already exists
+        existing_user = self.db.get_user_by_username(username)
+        if existing_user:
+            messagebox.showerror("Error", f"Username '{username}' already exists.", parent=self.top)
+            return
+
         try:
             self.db.add_user(username, password, role)
             messagebox.showinfo("Success", f"User '{username}' added as {role}.", parent=self.top)

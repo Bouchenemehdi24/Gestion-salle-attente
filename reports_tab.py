@@ -14,10 +14,19 @@ except locale.Error:
         print("French locale not available, using system default for dates.")
 
 class ReportsTab:
-    def __init__(self, parent, reports_manager):
+    def __init__(self, parent, reports_manager, user_role):
         self.parent = parent
         self.reports_manager = reports_manager
+        self.user_role = user_role
+        self.update_interval = 60000 # Update every 60 seconds (in milliseconds)
         self.setup_ui()
+        self.apply_role_restrictions()
+        self.schedule_report_update() # Start the auto-update schedule
+
+    def apply_role_restrictions(self):
+        if self.user_role.lower() == 'doctor':
+            self.financial_radio.config(state='disabled')
+            self.report_type_var.set("patient")
 
     def setup_ui(self):
         # Main frame for the reports tab
@@ -81,8 +90,15 @@ class ReportsTab:
         self.results_text.pack(fill=tk.BOTH, expand=True)
         self.results_text.config(state='disabled') # Make read-only initially
 
-        # Initial report generation
+        # Initial report generation (will be called by schedule_report_update)
+        # self.generate_report() # Removed initial call here, handled by schedule
+
+    def schedule_report_update(self):
+        """Generates the report and schedules the next update."""
         self.generate_report()
+        # Schedule the next call
+        self.parent.after(self.update_interval, self.schedule_report_update)
+
 
     def toggle_date_entries(self):
         """Show/hide and enable/disable custom date entries based on selection."""

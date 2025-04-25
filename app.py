@@ -1,20 +1,18 @@
 import tkinter as tk
-from tkinter import ttk, messagebox, scrolledtext
-from datetime import datetime, timedelta
-import sqlite3
-from tkinter.font import Font
-from accounting import AccountingManager # Removed FinancialReport
-# Updated import to include new classes and exceptions
-from database import DatabaseManager, DatabaseError, DatabaseOperationError, DatabaseConnectionError
-from reports_manager import ReportsManager # Corrected import path
-from reports_tab import ReportsTab # Added import for the new tab class
-# Import both PatientListDialog and the new PatientSelectionDialog
-from patient_list_dialog import PatientListDialog, PatientSelectionDialog 
 import logging
+from datetime import datetime, date, timedelta
+from tkinter import ttk, messagebox, scrolledtext
+from tkinter.font import Font
+from accounting import AccountingManager
+from database import DatabaseManager, DatabaseError, DatabaseOperationError, DatabaseConnectionError
+from reports_manager import ReportsManager
+from reports_tab import ReportsTab
+from patient_list_dialog import PatientListDialog, PatientSelectionDialog
 from logging_config import setup_logging
-import locale
 from babel.dates import format_date
 from tkcalendar import DateEntry
+from ttkthemes import ThemedTk
+from ui_theme import theme
 
 try:
     locale.setlocale(locale.LC_ALL, 'fr_FR.UTF-8')  # Set French locale
@@ -23,7 +21,6 @@ except:
         locale.setlocale(locale.LC_ALL, 'fr_FR')
     except:
         pass  # If French locale is not available, use system default
-
 try:
     from PIL import Image, ImageTk
 except ImportError:
@@ -502,13 +499,19 @@ class AutocompleteEntry(ttk.Entry):
 
 from sidebar import Sidebar
 
+import json
+import os
+
 class LoginDialog:
+    CREDENTIALS_FILE = "user_credentials.json"
+
     def __init__(self, parent, db):
         self.top = tk.Toplevel(parent)
         self.top.title("Connexion")
         self.db = db
         self.result = None
-        
+        self.save_password_var = tk.BooleanVar() # Variable for checkbox state
+
         # Center dialog
         window_width = 300
         window_height = 150
@@ -517,152 +520,151 @@ class LoginDialog:
         x = (screen_width - window_width) // 2
         y = (screen_height - window_height) // 2
         self.top.geometry(f"{window_width}x{window_height}+{x}+{y}")
-        
+
         self.create_widgets()
-        
+
+        # Load saved credentials if any
+        self.load_saved_credentials()
+
     def create_widgets(self):
         # Main frame
         main_frame = ttk.Frame(self.top, padding="20")
         main_frame.pack(fill=tk.BOTH, expand=True)
-        
+
         # Username
         ttk.Label(main_frame, text="Utilisateur:").grid(row=0, column=0, sticky=tk.W)
         self.username = ttk.Entry(main_frame)
         self.username.grid(row=0, column=1, padx=5, pady=5, sticky=tk.EW)
-        
+
         # Password
         ttk.Label(main_frame, text="Mot de passe:").grid(row=1, column=0, sticky=tk.W)
         self.password = ttk.Entry(main_frame, show="*")
         self.password.grid(row=1, column=1, padx=5, pady=5, sticky=tk.EW)
-        
+
+        # Save Password Checkbox
+        save_check = ttk.Checkbutton(main_frame, text="Enregistrer le mot de passe", variable=self.save_password_var)
+        save_check.grid(row=2, column=0, columnspan=2, sticky=tk.W, pady=(10, 0))
+
         # Buttons
         btn_frame = ttk.Frame(main_frame)
-        btn_frame.grid(row=2, column=0, columnspan=2, pady=20)
-        
-        ttk.Button(btn_frame, text="Connexion", command=self.login).pack(side=tk.LEFT, padx=5)
-        ttk.Button(btn_frame, text="Annuler", command=self.cancel).pack(side=tk.LEFT, padx=5)
-        
-        # Configure grid
+        btn_frame.grid(row=3, column=0, columnspan=2, pady=20, sticky=tk.EW)  # Ensure frame expands
+
+        # Apply dark text color to buttons for better contrast on pale backgrounds
+        style = ttk.Style()
+        style.configure('Login.TButton', foreground='#111111')
+
+        ttk.Button(btn_frame, text="Connexion", command=self.login, style='Login.TButton').pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
+        ttk.Button(btn_frame, text="Annuler", command=self.cancel, style='Login.TButton').pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
+
+        main_frame.columnconfigure(0, weight=1)
         main_frame.columnconfigure(1, weight=1)
-        
+
         # Bind enter key
         self.password.bind('<Return>', lambda e: self.login())
-        
+
+        # Set a minimum size for the dialog to avoid clipping
+        self.top.minsize(340, 180)  # Set a minimum size for the dialog
+
+    def load_saved_credentials(self):
+        if os.path.exists(self.CREDENTIALS_FILE):
+            try:
+                with open(self.CREDENTIALS_FILE, "r") as f:
+                    data = json.load(f)
+                    username = data.get("username", "")
+                    password = data.get("password", "")
+                    self.username.insert(0, username)
+                    self.password.insert(0, password)
+                    self.save_password_var.set(bool(username and password))
+            except Exception as e:
+                # Log error or ignore
+                pass
+
+    def save_credentials(self, username, password):
+        try:
+            with open(self.CREDENTIALS_FILE, "w") as f:
+                json.dump({"username": username, "password": password}, f)
+        except Exception as e:
+            # Log error or ignore
+            pass
+
+    def clear_saved_credentials(self):
+        if os.path.exists(self.CREDENTIALS_FILE):
+            try:
+                os.remove(self.CREDENTIALS_FILE)
+            except Exception as e:
+                # Log error or ignore
+                pass
+
     def login(self):
         username = self.username.get().strip()
         password = self.password.get().strip()
-        
+
         if not username or not password:
             messagebox.showerror("Erreur", "Veuillez remplir tous les champs", parent=self.top)
             return
-            
+
         user = self.db.verify_user_credentials(username, password)
         if user:
+            if self.save_password_var.get():
+                self.save_credentials(username, password)
+            else:
+                self.clear_saved_credentials()
             self.result = user
             self.top.destroy()
         else:
             messagebox.showerror("Erreur", "Identifiants incorrects", parent=self.top)
             self.password.delete(0, tk.END)
-    
+
     def cancel(self):
         self.top.destroy()
 
 class DoctorsWaitingRoomApp:
-    def setup_styles(self):
-        """Setup ttk styles for the application"""
-        style = ttk.Style()
-        style.theme_use("clam")
-
-        style.configure("Primary.TButton",
-                       background=self.colors['primary'],
-                       foreground="white",
-                       padding=(15, 10),
-                       font=('Arial', 11, 'bold'),  # Fixed quote
-                       relief="flat")
-
-        style.configure("Secondary.TButton",
-                       background=self.colors['secondary'],
-                       foreground="white",
-                       padding=(15, 10),
-                       font=('Arial', 11),  # Fixed quote
-                       relief="flat")
-
-        style.configure("Success.TButton",
-                       background=self.colors['success'],
-                       foreground="white",
-                       padding=(15, 10),
-                       font=('Arial', 11, 'bold'),  # Fixed quote
-                       relief="flat")
-
-        style.configure("Card.TFrame",
-                       background=self.colors['surface'],
-                       relief="ridge",
-                       borderwidth=2)
-
-        style.configure("Header.TLabel",
-                       font=('Arial', 18, 'bold'),
-                       foreground=self.colors['primary'],
-                       background=self.colors['surface'])
-
-        style.configure("Info.TLabel",
-                       font=('Arial', 13),
-                       background=self.colors['surface'],
-                       foreground=self.colors['text'])
-
-        style.configure("TLabel",
-                       background=self.colors['surface'],
-                       foreground=self.colors['text'],
-                       font=('Arial', 11))
-
-        style.configure("TEntry",
-                       fieldbackground=self.colors['surface'],
-                       foreground=self.colors['text'],
-                       font=('Arial', 11))
-
-        style.configure("StatCard.TFrame",
-                       background=self.colors['surface'],
-                       relief="raised",
-                       borderwidth=1)
-                       
-        style.configure("StatIcon.TLabel",
-                       background=self.colors['surface'],
-                       foreground=self.colors['primary'])
-                       
-        style.configure("StatValue.TLabel",
-                       background=self.colors['surface'],
-                       foreground=self.colors['text'])
-                       
-        style.configure("StatTitle.TLabel",
-                       background=self.colors['surface'],
-                       foreground=self.colors['secondary'],
-                       font=('Arial', 10))
-                       
-        style.configure("Dashboard.TButton",
-                       padding=(15, 10),
-                       font=('Arial', 11))
-
     def __init__(self, root):
         self.logger = logging.getLogger(__name__)
         self.root = root
         self.root.title("Cabinet Médical - Gestion")
-        self.root.withdraw()  # Hide main window until login
+
+        # Set application icon
+        try:
+            if os.path.exists("icon.png"):
+                # Convert PNG to PhotoImage for the window icon
+                icon = tk.PhotoImage(file="icon.png")
+                self.root.iconphoto(True, icon)
+            elif os.path.exists("app_icon.ico"):
+                # Use ICO file directly if PNG is not available
+                self.root.iconbitmap("app_icon.ico")
+        except Exception as e:
+            self.logger.warning(f"Failed to set application icon: {e}")
+
+        # Initialize theme
+        self.theme = theme
         
-        # Initialize colors first
+        # Apply the custom theme styles to the root window
+        self.theme.apply_to_window(self.root)
+
+        self.root.withdraw()  # Hide main window until login
+
+        # Initialize theme switcher early
+        from theme_switcher import ThemeSwitcher
+        self.theme_switcher = ThemeSwitcher(root)
+        self.theme_switcher.apply_theme()
+        
+        # Initialize colors with more vivid options
         self.colors = {
-            'primary': '#3B82F6',
-            'secondary': '#64748B',
-            'success': '#22C55E',
-            'warning': '#F59E0B',
-            'danger': '#EF4444',
-            'background': '#F9FAFB',
-            'surface': '#FFFFFF',
-            'text': '#1E293B'
+            'primary': '#2563EB',    # Vivid blue
+            'secondary': '#4B5563',   # Dark gray
+            'success': '#10B981',     # Vivid green
+            'warning': '#F59E0B',     # Vivid orange
+            'danger': '#DC2626',      # Vivid red
+            'background': '#F3F4F6',  # Light gray background
+            'surface': '#FFFFFF',     # Pure white
+            'text': '#111827'         # Very dark gray, almost black
         }
         
         self.wait_colors = {
-            'new': '#e3f2fd',      # Light blue
-            'waiting': '#fff3e0',  # Light orange
-            'long_wait': '#ffebee' # Light red
+            'new': '#BFDBFE',      # Vivid light blue
+            'waiting': '#FED7AA',   # Vivid light orange
+            'long_wait': '#FEE2E2'  # Vivid light red
         }
         
         try:
@@ -684,7 +686,10 @@ class DoctorsWaitingRoomApp:
                                "Impossible de démarrer l'application.")
             root.destroy()
             return
-    
+        
+        # Bind window close event
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+
     def show_login(self):
         dialog = LoginDialog(self.root, self.db)
         self.root.wait_window(dialog.top)
@@ -715,7 +720,7 @@ class DoctorsWaitingRoomApp:
         self.load_records()
         
         # Setup UI
-        self.setup_styles()
+        # self.setup_styles() # Theme is applied globally via ThemedTk, specific styles can be set if needed later
         self.setup_ui()
         
         # Status bar with logged in user
@@ -725,17 +730,29 @@ class DoctorsWaitingRoomApp:
                                   relief=tk.SUNKEN,
                                   padding=(10, 5))
         self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+
+        # Initialize attributes for dashboard stat labels
+        self.stat_waiting_value_label = None
+        self.stat_visited_value_label = None
+        self.stat_avg_wait_value_label = None
+        self.stat_payments_value_label = None
         
-        # Initial update and schedule periodic refresh (every 5 seconds)
-        self.update_displays() # Run once immediately
-        self.root.after(5000, self.schedule_next_update) # Start the update cycle
+        # More frequent updates (every 2 seconds) for real-time feel
+        self.update_interval = 2000  # 2 seconds
+        
+        # Initial update and schedule periodic refresh
+        self.update_displays()  # Run once immediately
+        self.schedule_next_update()  # Start the update cycle
+        
+        # Store update job ID for proper cleanup
+        self.update_job = None
 
     def schedule_next_update(self):
         """Schedules the next call to update_displays."""
-        self.update_displays()
-        # Schedule the next update only if the root window still exists
+        self.update_displays()  # Update immediately
+        # Schedule the next update and store the job ID
         if self.root.winfo_exists():
-            self.root.after(5000, self.schedule_next_update)
+            self.update_job = self.root.after(self.update_interval, self.schedule_next_update)
 
     def load_records(self):
         """Load today's records from database."""
@@ -743,29 +760,40 @@ class DoctorsWaitingRoomApp:
             with self.db.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    SELECT p.name, v.* 
+                    SELECT p.name, v.called_at, v.checkout_at
                     FROM patients p
                     JOIN visits v ON p.patient_id = v.patient_id
-                    WHERE date(v.date) = date('now')
+                    WHERE date(v.date) = date('now') -- Get all visits for today
                     ORDER BY v.arrived_at ASC
                 """)
-                today_visits = cursor.fetchall()
-                
-                # Clear existing lists
+                all_today_visits = cursor.fetchall()
+
+                # Clear existing lists before repopulating
                 self.waiting_queue.clear()
                 self.visited_today.clear()
                 self.with_doctor = None
-                
-                for visit in today_visits:
+
+                # Process all visits for today to determine status
+                for visit in all_today_visits:
                     name = visit["name"]
-                    if not visit["called_at"]:
-                        self.waiting_queue.append(name)
-                    elif not visit["checkout_at"]:
+                    called_at = visit["called_at"]
+                    checkout_at = visit["checkout_at"]
+
+                    if checkout_at:
+                        # If checked out, add to visited_today (ensure no duplicates if multiple visits)
+                        if name not in self.visited_today:
+                            self.visited_today.append(name)
+                    elif called_at:
+                        # If called but not checked out, they are with the doctor
                         self.with_doctor = name
                     else:
-                        self.visited_today.append(name)
-                        
-                self.logger.info(f"Loaded {len(self.waiting_queue)} waiting patients")
+                        # If not called and not checked out, they are waiting
+                        if name not in self.waiting_queue: # Avoid duplicates if somehow registered twice
+                            self.waiting_queue.append(name)
+
+                self.logger.info(f"Loaded records: {len(self.waiting_queue)} waiting, "
+                                 f"{1 if self.with_doctor else 0} with doctor, "
+                                 f"{len(self.visited_today)} visited today.")
                 
         except Exception as e:
             self.logger.exception("Error loading records")
@@ -867,13 +895,11 @@ class DoctorsWaitingRoomApp:
         self.save_services()  # Now saves to database
 
     def setup_ui(self):
-        # Main container with padding
-        main_container = ttk.Frame(self.root, padding="10")
-        main_container.pack(fill=tk.BOTH, expand=True)
+        # Main container with modern padding
+        main_container = ttk.Frame(self.root, style='Content.TFrame')
+        main_container.pack(fill=tk.BOTH, expand=True, padx=30, pady=20)
         
-        # Create sidebar
-        self.sidebar = Sidebar(main_container, width=200)
-        # Create top search bar frame
+        # Only one search bar: keep the second one with placeholder and event bindings
         search_bar_frame = ttk.Frame(main_container, padding=(0, 5, 0, 10)) # Add padding below
         search_bar_frame.pack(side=tk.TOP, fill=tk.X)
 
@@ -895,7 +921,7 @@ class DoctorsWaitingRoomApp:
 
         print("DEBUG: current_user role at sidebar creation:", self.current_user['role'])
         # Create sidebar (now inside lower_frame)
-        self.sidebar = Sidebar(lower_frame, width=200)
+        self.sidebar = Sidebar(lower_frame, width=200, theme_switcher=self.theme_switcher)
         self.sidebar.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 10))
 
         # Create main content area (now inside lower_frame)
@@ -913,21 +939,17 @@ class DoctorsWaitingRoomApp:
 
         if user_role == 'Admin':
             self.sidebar.add_button("User Management", self.show_user_management)
-            # Removed "Rapports" button for Admin
+            self.sidebar.add_button("Rapport", self.show_reports)
             self.sidebar.add_button("Paramètres", self.show_settings)
         elif user_role == 'Doctor':
-            # Doctor sees Paramètres, but not User Management or Rapports
-            # Removed "Rapports" button for Doctor
+            self.sidebar.add_button("Rapport", self.show_reports)
             self.sidebar.add_button("Paramètres", self.show_settings)
         elif user_role == 'Assistant':
-            # Assistant sees none of these specific tabs
             pass
         else:
-            # Handle potential unknown roles gracefully (optional)
             self.logger.warning(f"Unknown user role encountered: {user_role}")
 
-        # Show initial view
-        self.show_dashboard() # Show dashboard initially
+        self.show_dashboard()
 
     def show_user_management(self):
         import logging
@@ -996,7 +1018,7 @@ class DoctorsWaitingRoomApp:
         self.search_results_listbox.lift()
 
     def focus_search_results(self, event=None):
-        """Move focus to the search results listbox if visible."""
+        """Move focus to the search results listbox if visible.""" 
         if self.search_results_listbox and self.search_results_listbox.winfo_viewable():
             self.search_results_listbox.focus_set()
             self.search_results_listbox.selection_set(0) # Select the first item
@@ -1017,7 +1039,7 @@ class DoctorsWaitingRoomApp:
         self.show_patient_list(search_term=selected_patient)
 
     def hide_search_results(self, event=None):
-        """Destroy the search results listbox."""
+        """Destroy the search results listbox.""" 
         if self.search_results_listbox:
             self.search_results_listbox.destroy()
             self.search_results_listbox = None
@@ -1028,6 +1050,8 @@ class DoctorsWaitingRoomApp:
             widget.destroy()
 
     def show_dashboard(self):
+        print(f"DEBUG: show_dashboard called on instance of type {type(self)}")
+        print(f"DEBUG: Available attributes: {dir(self)}")
         self.clear_content()
         dashboard = ttk.Frame(self.content_frame)
         dashboard.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
@@ -1042,29 +1066,30 @@ class DoctorsWaitingRoomApp:
             "Patients en attente", 
             len(self.waiting_queue),
             "⏰", 0) # Replaced unsupported emoji
-        self.create_stat_card(stats_frame, 
-            "Vus aujourd'hui", 
-            len(self.visited_today),
+        self.create_stat_card(stats_frame,
+            "Vus aujourd'hui",
+            self.calculate_patients_seen_today(), # Use DB query function
             "✓", 1)
-        self.create_stat_card(stats_frame, 
-            "Temps moyen d'attente",
-            self.calculate_avg_wait_time(),
+        self.create_stat_card(stats_frame,
+            "Temps moyen consultation", # Updated label
+            self.calculate_avg_consultation_time_today(), # Updated function call
             "⏱️", 2)
         self.create_stat_card(stats_frame,
             "Total des paiements",
-            f"{self.calculate_total_payments()} DA",
+            f"{self.calculate_total_payments()} DA", # Use DB query function
             "(DA)", 3) # Replaced unsupported emoji with text
-            
+
         # Quick actions section
         actions_frame = ttk.LabelFrame(dashboard, text="Actions rapides", padding="10")
         actions_frame.pack(fill=tk.X, pady=10)
         
         for i, (text, cmd, icon) in enumerate([
-            ("Nouveau patient", self.show_patient_registration, "➕"),
+            ("Nouveau patient", self.show_patient_list, "➕"),
             # Removed "Nouveau rendez-vous" quick action
             ("Liste d'attente", self.show_waiting, "★")
             # Removed "Rapports" quick action button
         ]):
+
             btn = ttk.Button(actions_frame, text=f"{icon} {text}", command=cmd, style="Dashboard.TButton")
             btn.pack(side=tk.LEFT, padx=5)
 
@@ -1082,12 +1107,60 @@ class DoctorsWaitingRoomApp:
         self.create_visits_chart(chart_frame)
         notebook.add(chart_frame, text="Résumé")
 
+    # --- Start: Renamed calculate_avg_wait_time to calculate_avg_consultation_time_today and updated logic ---
+    def calculate_avg_consultation_time_today(self):
+        """Calculate average consultation time (call to checkout) for visits completed today."""
+        try:
+            with self.db.get_connection() as conn:
+                cursor = conn.cursor()
+                # Calculate average difference in seconds for visits checked out today
+                cursor.execute("""
+                    SELECT AVG(strftime('%s', checkout_at) - strftime('%s', called_at)) as avg_seconds
+                    FROM visits
+                    WHERE date(checkout_at) = date('now')
+                    AND called_at IS NOT NULL -- Ensure called_at exists
+                    AND checkout_at IS NOT NULL -- Ensure checkout_at exists
+                """)
+                result = cursor.fetchone()
+                avg_seconds = result['avg_seconds'] if result and result['avg_seconds'] is not None else 0
+                if avg_seconds > 0:
+                    minutes = int(avg_seconds // 60)
+                    seconds = int(avg_seconds % 60)
+                    return f"{minutes}m {seconds}s"
+                else:
+                    # Return "0m 0s" or similar if no completed visits today or avg is zero
+                    return "0m 0s"
+        except Exception as e:
+            self.logger.exception("Error calculating average consultation time for today")
+            return "N/A"
+    # --- End: Renamed function and updated logic ---
+
+    # --- Start: Moving calculate_total_payments to class level (already correct) ---
+    def calculate_total_payments(self): 
+        """Calculate total payments for today"""
+        try:
+            with self.db.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT SUM(total_paid) as total
+                    FROM visits 
+                    WHERE date(checkout_at) = date('now')
+                """)
+                result = cursor.fetchone()
+                # If SUM returns NULL (no rows match), it should be treated as 0
+                return result['total'] if result and result['total'] is not None else 0
+        except Exception as e:
+            # Log the error for debugging
+            self.logger.exception("Error calculating total payments")
+            return 0 # Return 0 in case of error
+    # --- End: Moving calculate_total_payments ---
+
     def create_stat_card(self, parent, title, value, icon, column):
         """Create a modern statistics card"""
         card = ttk.Frame(parent, style="StatCard.TFrame")
         card.grid(row=0, column=column, padx=5, sticky="nsew")
         
-        icon_label = ttk.Label(card, text=icon, 
+        icon_label = ttk.Label(card, text=icon,
                              font=('Arial', 24),
                              style="StatIcon.TLabel")
         icon_label.pack(pady=(10,0))
@@ -1096,6 +1169,16 @@ class DoctorsWaitingRoomApp:
                                font=('Arial', 20, 'bold'),
                                style="StatValue.TLabel")
         value_label.pack()
+
+        # Store reference based on title or column for real-time updates
+        if column == 0: # Patients en attente
+            self.stat_waiting_value_label = value_label
+        elif column == 1: # Vus aujourd'hui
+            self.stat_visited_value_label = value_label
+        elif column == 2: # Temps moyen d'attente
+            self.stat_avg_wait_value_label = value_label
+        elif column == 3: # Total des paiements
+            self.stat_payments_value_label = value_label
         
         title_label = ttk.Label(card, text=title,
                                style="StatTitle.TLabel")
@@ -1103,9 +1186,13 @@ class DoctorsWaitingRoomApp:
 
     def create_visits_list(self, parent):
         """Create enhanced visits list"""
+        # Create scrollable frame container
+        outer_frame = ttk.Frame(parent)
+        outer_frame.pack(fill=tk.BOTH, expand=True)
+        
         # Create treeview with better styling
         columns = ("time", "patient", "services", "duration", "payment", "status")
-        tree = ttk.Treeview(parent, columns=columns, show="headings", height=12)
+        tree = ttk.Treeview(outer_frame, columns=columns, show="headings", height=12)
         
         # Configure columns with better formatting
         tree.heading("time", text="Heure")
@@ -1122,15 +1209,95 @@ class DoctorsWaitingRoomApp:
         tree.column("payment", width=100, anchor="e")
         tree.column("status", width=100)
         
-        # Add scrollbar
-        scrollbar = ttk.Scrollbar(parent, orient=tk.VERTICAL, command=tree.yview)
-        tree.configure(yscrollcommand=scrollbar.set)
+        # Add both scrollbars
+        vsb = ttk.Scrollbar(outer_frame, orient=tk.VERTICAL, command=tree.yview)
+        hsb = ttk.Scrollbar(outer_frame, orient=tk.HORIZONTAL, command=tree.xview)
+        tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
         
-        tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5, pady=5)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y, pady=5)
+        # Grid layout for scrollbars
+        tree.grid(row=0, column=0, sticky="nsew")
+        vsb.grid(row=0, column=1, sticky="ns")
+        hsb.grid(row=1, column=0, sticky="ew")
+        
+        # Configure grid weights
+        outer_frame.grid_columnconfigure(0, weight=1)
+        outer_frame.grid_rowconfigure(0, weight=1)
         
         # Load and display data
         self.load_todays_visits(tree)
+        
+        return tree
+
+    def load_todays_visits(self, tree):
+        """Load today's visits into the treeview"""
+        try:
+            with self.db.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT 
+                        v.arrived_at,
+                        p.name,
+                        GROUP_CONCAT(s.name) as services,
+                        (strftime('%s', v.checkout_at) - strftime('%s', v.called_at))/60.0 as duration,
+                        v.total_paid,
+                        CASE 
+                            WHEN v.checkout_at IS NOT NULL THEN 'Terminé'
+                            WHEN v.called_at IS NOT NULL THEN 'En consultation'
+                            ELSE 'En attente'
+                        END as status
+                    FROM visits v
+                    JOIN patients p ON v.patient_id = p.patient_id
+                    LEFT JOIN visit_services vs ON v.visit_id = vs.visit_id
+                    LEFT JOIN services s ON vs.service_id = s.service_id
+                    WHERE date(v.arrived_at) = date('now')
+                    GROUP BY v.visit_id
+                    ORDER BY v.arrived_at DESC
+                """)
+                
+                tree.delete(*tree.get_children())
+                for row in cursor.fetchall():
+                    arrival = datetime.strptime(row['arrived_at'], "%Y-%m-%d %H:%M:%S")
+                    duration = f"{int(row['duration'])} min" if row['duration'] else "N/A"
+                    services = row['services'] if row['services'] else "Aucun"
+                    payment = f"{row['total_paid']} DA" if row['total_paid'] else "N/A"
+                    
+                    tree.insert("", "end", values=(
+                        arrival.strftime("%H:%M"),
+                        row['name'],
+                        services,
+                        duration,
+                        payment,
+                        row['status']
+                    ))
+        except Exception as e:
+            self.logger.exception("Error loading today's visits")
+
+    def get_hourly_visits(self):
+        """Get hourly visit counts for today's visits"""
+        try:
+            with self.db.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT
+                        strftime('%H', arrived_at) as hour,
+                        COUNT(*) as visit_count
+                    FROM visits
+                    WHERE date(arrived_at) = date('now')
+                    GROUP BY strftime('%H', arrived_at)
+                    ORDER BY hour
+                """)
+                results = cursor.fetchall()
+                hourly_counts = {str(h).zfill(2): 0 for h in range(24)}
+                for row in results:
+                    hour = row['hour']
+                    count = row['visit_count']
+                    hourly_counts[hour] = count
+                hours = list(hourly_counts.keys())
+                counts = list(hourly_counts.values())
+                return hours, counts
+        except Exception as e:
+            self.logger.exception("Error getting hourly visits")
+            return [], []
 
     def create_visits_chart(self, parent):
         """Create summary chart for today's visits"""
@@ -1163,14 +1330,60 @@ class DoctorsWaitingRoomApp:
     def show_waiting(self):
         """Show waiting list view"""
         self.clear_content()
-        self.create_waiting_section(self.content_frame)
-        # Force immediate update after creating waiting section
-        self.root.after(10, self.update_displays)        
+        # Build waiting list UI inline, no call to create_waiting_section
+        waiting_frame = ttk.Frame(self.content_frame, padding="10")
+        waiting_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Header
+        header_frame = ttk.Frame(waiting_frame)
+        header_frame.pack(fill=tk.X, pady=(0, 10))
+        ttk.Label(header_frame, text="Liste d'Attente", style="Header.TLabel").pack(side=tk.LEFT)
+
+        # Current patient with doctor display
+        current_patient_frame = ttk.Frame(waiting_frame)
+        current_patient_frame.pack(fill=tk.X, pady=(0, 10))
+        self.current_patient_label = ttk.Label(current_patient_frame, text="Patient Actuel: Aucun patient", style="Header.TLabel")
+        self.current_patient_label.pack(side=tk.LEFT)
+        self.consultation_time_label = ttk.Label(current_patient_frame, text="Durée: 0 min", style="Info.TLabel")
+        self.consultation_time_label.pack(side=tk.LEFT, padx=(10, 0))
+
+        # Listbox with Scrollbar
+        list_container = ttk.Frame(waiting_frame)
+        list_container.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+
+        if not hasattr(self, 'colors'):
+            self.colors = {'primary': '#3498db'}  # Default fallback
+
+        self.waiting_list = tk.Listbox(list_container, font=('Arial', 12), height=15,
+                                       selectbackground=self.colors.get('primary', '#3498db'),
+                                       selectforeground='white')
+        scrollbar = ttk.Scrollbar(list_container, orient=tk.VERTICAL, command=self.waiting_list.yview)
+        self.waiting_list.configure(yscrollcommand=scrollbar.set)
+
+        self.waiting_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Buttons Frame
+        button_frame = ttk.Frame(waiting_frame)
+        button_frame.pack(fill=tk.X)
+
+        add_cmd = self.add_new_patient_to_waiting if hasattr(self, 'add_new_patient_to_waiting') else None
+        call_cmd = self.call_selected_patient if hasattr(self, 'call_selected_patient') else None
+        remove_cmd = self.remove_from_waiting if hasattr(self, 'remove_from_waiting') else None
+        checkout_cmd = self.checkout_patient if hasattr(self, 'checkout_patient') else None
+
+        ttk.Button(button_frame, text="➕ Ajouter Patient", command=add_cmd, style="Accent.TButton").pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="▶️ Appeler Patient", command=call_cmd).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="❌ Retirer Patient", command=remove_cmd, style="Danger.TButton").pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="✅ Terminer Consultation", command=checkout_cmd, style="Success.TButton").pack(side=tk.LEFT, padx=5)
+
+        self.root.after(10, self.update_displays)  # Keep this to populate the list
 
     def show_patient_management(self):
-        self.clear_content()
-        # Open patient list dialog in content frame instead of new window
-        self.create_patient_section(self.content_frame)
+        """Show patient list dialog."""
+        # Note: This currently opens the list as a separate dialog window.
+        # The original intent (based on comments) might have been to embed it.
+        self.show_patient_list() # Opens PatientListDialog as a separate window
 
     # Removed show_appointments method
 
@@ -1181,8 +1394,8 @@ class DoctorsWaitingRoomApp:
             messagebox.showerror("Access Denied", "You do not have permission to access this tab.")
             return
         self.clear_content()
-        # Instantiate the new ReportsTab class
-        ReportsTab(self.content_frame, self.reports_manager)
+        # Instantiate the new ReportsTab class with user_role argument
+        ReportsTab(self.content_frame, self.reports_manager, user_role=self.current_user['role'])
 
     def show_patient_registration(self):
         self.clear_content()
@@ -1197,122 +1410,94 @@ class DoctorsWaitingRoomApp:
             self.load_records()
             
             # Update current patient display with consultation time
-            if hasattr(self, 'current_patient_label') and self.current_patient_label.winfo_exists():
+            if hasattr(self, 'current_patient_label') and self.current_patient_label and self.current_patient_label.winfo_exists():
                 if self.with_doctor:
-                    # Get consultation start time
-                    with self.db.get_connection() as conn:
-                        cursor = conn.cursor()
-                        cursor.execute("""
-                            SELECT v.called_at
-                            FROM visits v
-                            JOIN patients p ON v.patient_id = p.patient_id
-                            WHERE p.name = ? AND v.checkout_at IS NULL
-                            ORDER BY v.called_at DESC LIMIT 1
-                        """, (self.with_doctor,))
-                        result = cursor.fetchone()
-                        if result and result['called_at']:
-                            start_time = datetime.strptime(result['called_at'], "%Y-%m-%d %H:%M:%S")
-                            elapsed = datetime.now() - start_time
-                            minutes = int(elapsed.total_seconds() / 60)
-                            self.consultation_time_label.config(
-                                text=f"Durée: {minutes} min",
-                                foreground=self.colors['success'] if minutes < 15 else self.colors['warning']
-                            )
-                    self.current_patient_label.config(
-                        text=f"Patient Actuel: {self.with_doctor}",
-                        foreground=self.colors['success']
-                    )
-                else:
-                    self.current_patient_label.config(
-                        text="Aucun patient",
-                        foreground=self.colors['secondary']
-                    )
-                    self.consultation_time_label.config(
-                        text="Durée: 0 min",
-                        foreground=self.colors['secondary']
-                    )
-            
-            # Update waiting list
-            if hasattr(self, 'waiting_list') and self.waiting_list.winfo_exists():
-                self.waiting_list.delete(0, tk.END)
-                current_time = datetime.now()
-                arrival_times = {} # Dictionary to store arrival times
-
-                # Fetch arrival times for all waiting patients in one query
-                if self.waiting_queue: # Only query if there are patients waiting
+                    # Get consultation duration
                     try:
                         with self.db.get_connection() as conn:
                             cursor = conn.cursor()
-                            # Use placeholders for the list of names
-                            placeholders = ','.join('?' * len(self.waiting_queue))
-                            query = f"""
-                                SELECT p.name, MAX(v.arrived_at) as last_arrival
-                                FROM visits v
-                                JOIN patients p ON v.patient_id = p.patient_id
-                                WHERE p.name IN ({placeholders})
-                                AND v.called_at IS NULL
-                                AND date(v.date) = date('now') -- Ensure it's today's uncalled visit
-                                GROUP BY p.name
-                            """
-                            cursor.execute(query, self.waiting_queue)
-                            results = cursor.fetchall()
-                            # Store arrival times keyed by patient name
-                            arrival_times = {row['name']: row['last_arrival'] for row in results}
+                            cursor.execute("""
+                                SELECT strftime('%s', 'now') - strftime('%s', called_at) as duration
+                                FROM visits
+                                WHERE patient_id = (SELECT patient_id FROM patients WHERE name = ?)
+                                AND date(called_at) = date('now')
+                                AND checkout_at IS NULL
+                            """, (self.with_doctor,))
+                            result = cursor.fetchone()
+                            if result and result['duration']:
+                                minutes = int(result['duration']) // 60
+                                self.current_patient_label.config(text=f"Patient Actuel: {self.with_doctor}")
+                                if hasattr(self, 'consultation_time_label') and self.consultation_time_label:
+                                    self.consultation_time_label.config(text=f"Durée: {minutes} min")
                     except Exception as e:
-                        self.logger.error(f"Error fetching arrival times for waiting list: {e}")
-                        # Handle error gracefully, maybe show basic list without times
+                        self.logger.error(f"Error getting consultation duration: {e}")
+                else:
+                    self.current_patient_label.config(text="Patient Actuel: Aucun patient")
+                    if hasattr(self, 'consultation_time_label') and self.consultation_time_label:
+                        self.consultation_time_label.config(text="Durée: 0 min")
+            
+            # Update waiting list while preserving selection
+            if hasattr(self, 'waiting_list') and self.waiting_list and self.waiting_list.winfo_exists():
+                # Store current selection if any
+                selected_indices = self.waiting_list.curselection()
+                selected_values = [self.waiting_list.get(i) for i in selected_indices]
+                
+                self.waiting_list.delete(0, tk.END)
+                current_time = datetime.now()
+                new_selections = []  # To store new indices of previously selected items
+                
+                # Fetch waiting patients with their arrival times
+                try:
+                    with self.db.get_connection() as conn:
+                        cursor = conn.cursor()
+                        cursor.execute("""
+                            SELECT p.name, v.arrived_at
+                            FROM visits v
+                            JOIN patients p ON v.patient_id = p.patient_id
+                            WHERE date(v.arrived_at) = date('now')
+                            AND v.called_at IS NULL
+                            AND v.checkout_at IS NULL
+                            ORDER BY v.arrived_at
+                        """)
+                        for idx, row in enumerate(cursor.fetchall()):
+                            name = row['name']
+                            arrived_at = datetime.strptime(row['arrived_at'], "%Y-%m-%d %H:%M:%S")
+                            wait_time = current_time - arrived_at
+                            wait_minutes = int(wait_time.total_seconds() / 60)
+                            item_text = f"{name} (En attente: {wait_minutes}min)"
+                            self.waiting_list.insert(tk.END, item_text)
+                            
+                            # If this was a selected item, store its new index
+                            if any(selected_name in item_text for selected_name in selected_values):
+                                new_selections.append(idx)
+                                
+                        # Restore selections at their new positions
+                        for idx in new_selections:
+                            self.waiting_list.selection_set(idx)
+                            
+                except Exception as e:
+                    self.logger.error(f"Error updating waiting list: {e}")
 
-                # Now iterate and use the fetched times
-                for i, patient in enumerate(self.waiting_queue):
-                    wait_time = 0
-                    arrival_time_str = ""
-                    arrival_str = arrival_times.get(patient) # Get time from dictionary
+            # Update dashboard stat cards - adding None checks
+            if hasattr(self, 'stat_waiting_value_label') and self.stat_waiting_value_label and self.stat_waiting_value_label.winfo_exists():
+                self.stat_waiting_value_label.config(text=str(len(self.waiting_queue)))
+            
+            if hasattr(self, 'stat_visited_value_label') and self.stat_visited_value_label and self.stat_visited_value_label.winfo_exists():
+                patients_seen = self.calculate_patients_seen_today()
+                self.stat_visited_value_label.config(text=str(patients_seen))
+            
+            if hasattr(self, 'stat_avg_wait_value_label') and self.stat_avg_wait_value_label and self.stat_avg_wait_value_label.winfo_exists():
+                avg_time = self.calculate_avg_consultation_time_today()
+                self.stat_avg_wait_value_label.config(text=str(avg_time))
+            
+            if hasattr(self, 'stat_payments_value_label') and self.stat_payments_value_label and self.stat_payments_value_label.winfo_exists():
+                total_payments = self.calculate_total_payments()
+                self.stat_payments_value_label.config(text=f"{total_payments} DA")
 
-                    if arrival_str:
-                        try:
-                            # Ensure arrival_str is not None before parsing
-                            arrival = datetime.strptime(arrival_str, "%Y-%m-%d %H:%M:%S")
-                            wait_time = (current_time - arrival).total_seconds() / 60
-                            arrival_time_str = arrival.strftime("%H:%M")
-                        except (ValueError, TypeError) as e: # Catch TypeError if arrival_str is None
-                            self.logger.warning(f"Invalid arrival time format or value for {patient}: {arrival_str} ({e})")
-                            arrival_time_str = "N/A" # Indicate missing time
-
-                    # Include arrival time in the display text
-                    item_text = f"{i+1}. {patient} [{arrival_time_str}]"
-                    if wait_time > 0:
-                        item_text += f" (⏱️ {int(wait_time)}min)"
-                    self.waiting_list.insert(tk.END, item_text)
-
-                    # Color coding remains the same
-                    if wait_time == 0:
-                        self.waiting_list.itemconfig(i, {'bg': self.wait_colors['new']})
-                    elif wait_time > 30:
-                        self.waiting_list.itemconfig(i, {'bg': self.wait_colors['long_wait']})
-                    else:
-                        self.waiting_list.itemconfig(i, {'bg': self.wait_colors['waiting']})
-
-            # Update visited list
-            if hasattr(self, 'visited_list') and self.visited_list.winfo_exists():
-                self.visited_list.delete(0, tk.END)
-                for i, patient in enumerate(self.visited_today):
-                    self.visited_list.insert(tk.END, f"✓ {patient}")
-
-            # Update counts
-            if hasattr(self, 'waiting_count') and self.waiting_count.winfo_exists():
-                self.waiting_count.config(text=str(len(self.waiting_queue)))
-            if hasattr(self, 'visited_count') and self.visited_count.winfo_exists():
-                self.visited_count.config(text=str(len(self.visited_today)))
-
-            # Update visited text display        
-            if hasattr(self, 'visited_text') and self.visited_text.winfo_exists():
-                self.update_visited_text()
-
-            # Removed update for main_appointments_tree
         except tk.TclError as e:
-            self.logger.debug(f"Widget update skipped - widget might have been destroyed: {str(e)}")
+            self.logger.error(f"Tkinter error during display update: {e}")
         except Exception as e:
-            self.logger.exception("Error in update_displays")
+            self.logger.exception("Error updating displays")
 
     # Removed update_all_appointments method
 
@@ -1321,23 +1506,18 @@ class DoctorsWaitingRoomApp:
         try:
             dialog = PatientListDialog(self.root, self.db)
             self.root.wait_window(dialog.top)
-            # Only update if window wasn't cancelled
             if dialog.top.winfo_exists():
-                # Removed call to update_all_appointments
-                self.root.after(100, self.update_displays) # Schedule basic update
+                self.root.after(100, self.update_displays)
         except Exception as e:
             self.logger.exception("Error showing patient list")
             messagebox.showerror("Erreur", 
                                "Une erreur est survenue lors de l'affichage de la liste des patients")
 
-    # Removed create_appointments_panel, create_appointment_tree, update_appointment_displays methods
-
+    # --- Start: Indenting create_visited_panel ---
     def create_visited_panel(self, parent):
-        # Move existing visited patients panel code here (No changes needed here)
         visited_card = ttk.Frame(parent, style="Card.TFrame")
         visited_card.pack(fill=tk.BOTH, expand=True)
         
-        # Header with count
         header_frame = ttk.Frame(visited_card)
         header_frame.pack(fill=tk.X, pady=10, padx=10)
         
@@ -1347,11 +1527,9 @@ class DoctorsWaitingRoomApp:
         self.visited_count = ttk.Label(header_frame, text="0", style="Info.TLabel")
         self.visited_count.pack(side=tk.RIGHT)
         
-        # Create notebook for different views
         notebook = ttk.Notebook(visited_card)
         notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
         
-        # List view tab
         list_frame = ttk.Frame(notebook)
         self.visited_list = tk.Listbox(list_frame, 
                                      font=('Arial', 12),
@@ -1366,158 +1544,129 @@ class DoctorsWaitingRoomApp:
         list_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         self.visited_list.config(yscrollcommand=list_scroll.set)
         
-        # Detailed view tab
         details_frame = ttk.Frame(notebook)
         self.visited_text = scrolledtext.ScrolledText(details_frame, 
                                                     wrap=tk.WORD, 
                                                     height=10)
         self.visited_text.pack(fill=tk.BOTH, expand=True)
         
-        # Add tabs to notebook
         notebook.add(list_frame, text="Liste")
         notebook.add(details_frame, text="Détails")
         
-        # Initialize displays
-        self.update_visited_text()
-        
-    def update_visited_text(self):
-        """Update the visited patients text area with today's visits."""
+        self.update_visited_text() # This call remains inside create_visited_panel
+    # --- End: Indenting create_visited_panel ---
+    
+    # --- Start: Moving calculate_avg_wait_time to class level (already correct) ---
+    def calculate_avg_wait_time(self): 
+        """Calculate average waiting time for today's patients"""
         try:
             with self.db.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    SELECT 
-                        p.name,
-                        v.checkout_at,
-                        v.total_paid,
-                        GROUP_CONCAT(s.name) as services
-                    FROM visits v
-                    JOIN patients p ON v.patient_id = p.patient_id
-                    LEFT JOIN visit_services vs ON v.visit_id = vs.visit_id
-                    LEFT JOIN services s ON vs.service_id = s.service_id
-                    WHERE date(v.checkout_at) = date('now')
-                    GROUP BY v.visit_id
-                    ORDER BY v.checkout_at DESC
+                    SELECT AVG((strftime('%s', called_at) - strftime('%s', arrived_at)) / 60.0) as avg_wait
+                    FROM visits 
+                    WHERE date(arrived_at) = date('now')
+                    AND called_at IS NOT NULL
                 """)
-                visits = cursor.fetchall()
-                
-                self.visited_text.config(state=tk.NORMAL)
-                self.visited_text.delete(1.0, tk.END)
-                
-                headers = "Heure\tPatient\tServices\tPaiement\n"
-                self.visited_text.insert(tk.END, headers)
-                self.visited_text.insert(tk.END, "-" * 60 + "\n")
-                
-                for visit in visits:
-                    checkout_time = datetime.strptime(visit['checkout_at'], "%Y-%m-%d %H:%M:%S")
-                    services = visit['services'] if visit['services'] else "Aucun"
-                    line = f"{checkout_time.strftime('%H:%M')}\t{visit['name']}\t{services}\t{visit['total_paid']} DA\n"
-                    self.visited_text.insert(tk.END, line)
-                    
-                self.visited_text.config(state=tk.DISABLED)
+                result = cursor.fetchone()
+                avg_wait = result['avg_wait'] if result['avg_wait'] else 0
+                return f"{int(avg_wait)} min"
+        except Exception:
+            return "N/A"
+    # --- End: Moving calculate_avg_wait_time ---
+
+    # --- Start: Moving calculate_total_payments to class level ---
+    def calculate_total_payments(self): 
+        """Calculate total payments for today"""
+        try:
+            with self.db.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT SUM(total_paid) as total
+                    FROM visits 
+                    WHERE date(checkout_at) = date('now')
+                """)
+                result = cursor.fetchone()
+                # If SUM returns NULL (no rows match), it should be treated as 0
+                return result['total'] if result and result['total'] is not None else 0
         except Exception as e:
-            self.logger.exception("Error updating visited patients list")
-            messagebox.showerror("Erreur", "Impossible de mettre à jour la liste des patients vus")
+            # Log the error for debugging
+            self.logger.exception("Error calculating total payments")
+            return 0 # Return 0 in case of error
+    # --- End: Moving calculate_total_payments ---
 
-    def get_existing_patients(self):
-        """Get list of all patient names from database."""
-        with self.db.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT name FROM patients ORDER BY name")
-            return [row['name'] for row in cursor.fetchall()]
+    def calculate_patients_seen_today(self):
+        """Calculate the number of unique patients checked out today."""
+        try:
+            with self.db.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT COUNT(DISTINCT patient_id) as count
+                    FROM visits
+                    WHERE date(checkout_at) = date('now')
+                """)
+                result = cursor.fetchone()
+                return result['count'] if result else 0
+        except Exception as e:
+            self.logger.exception("Error calculating patients seen today")
+            return 0
 
-    def create_patient_section(self, parent):
-        # Actions card
-        actions_card = ttk.Frame(parent, style="Card.TFrame")
-        actions_card.pack(fill=tk.X, pady=10)
-        
-        ttk.Label(actions_card, text="Gérer les Patients", style="Header.TLabel").pack(pady=10)
-        
-        buttons_frame = ttk.Frame(actions_card)
-        buttons_frame.pack(fill=tk.X, padx=20, pady=10)
-        
-        ttk.Button(buttons_frame, 
-                  text="Liste des Patients",
-                  command=self.show_patient_list,
-                  style="Primary.TButton").pack(fill=tk.X, pady=5)
+    def calculate_avg_consultation_time(self):
+        """Calculate average consultation time (call to checkout) for visits completed today."""
+        try:
+            with self.db.get_connection() as conn:
+                cursor = conn.cursor()
+                # Calculate average difference in seconds, then convert
+                cursor.execute("""
+                    SELECT AVG(strftime('%s', checkout_at) - strftime('%s', called_at)) as avg_seconds
+                    FROM visits
+                    WHERE date(checkout_at) = date('now')
+                    AND called_at IS NOT NULL -- Ensure called_at exists
+                    AND checkout_at IS NOT NULL -- Ensure checkout_at exists
+                """)
+                result = cursor.fetchone()
+                avg_seconds = result['avg_seconds'] if result and result['avg_seconds'] is not None else 0
+                if avg_seconds > 0:
+                    minutes = int(avg_seconds // 60)
+                    seconds = int(avg_seconds % 60)
+                    return f"{minutes}m {seconds}s"
+                else:
+                    return "0m 0s"
+        except Exception as e:
+            self.logger.exception("Error calculating average consultation time")
+            return "N/A"
 
-    def create_waiting_section(self, parent):
-        # Create main container for waiting section
-        waiting_container = ttk.Frame(parent)
-        waiting_container.pack(fill=tk.BOTH, expand=True)
-        
-        # Current patient card at top
-        current_card = ttk.Frame(waiting_container, style="Card.TFrame")
-        current_card.pack(fill=tk.X, pady=(0, 20))
-        
-        ttk.Label(current_card, text="Patient Actuel", style="Header.TLabel").pack(pady=10)
-        
-        self.current_patient_label = ttk.Label(current_card,
-                                             text="Aucun patient",
-                                             font=('Arial', 14, 'bold'),
-                                             foreground=self.colors['primary'])
-        self.current_patient_label.pack(pady=5)
-        
-        self.consultation_time_label = ttk.Label(current_card,
-                                               text="Durée: 0 min",
-                                               font=('Arial', 12),
-                                               foreground=self.colors['secondary'])
-        self.consultation_time_label.pack(pady=5)
-        
-        ttk.Button(current_card,
-                  text="Traiter Paiement",
-                  style="Success.TButton",
-                  command=self.process_payment).pack(pady=10)
-        
-        # Waiting list section
-        waiting_card = ttk.Frame(waiting_container, style="Card.TFrame")
-        waiting_card.pack(fill=tk.BOTH, expand=True)
-        
-        # Header with count
-        header_frame = ttk.Frame(waiting_card)
-        header_frame.pack(fill=tk.X, pady=10, padx=10)
-        
-        ttk.Label(header_frame, text="Liste d'Attente", style="Header.TLabel").pack(side=tk.LEFT)
-        self.waiting_count = ttk.Label(header_frame, text="0", style="Info.TLabel")
-        self.waiting_count.pack(side=tk.RIGHT)
-        
-        # Waiting list with scrollbar
-        list_frame = ttk.Frame(waiting_card)
-        list_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
-        
-        self.waiting_list = tk.Listbox(list_frame, 
-                                     font=('Arial', 12),
-                                     selectmode=tk.SINGLE,
-                                     activestyle='none',
-                                     bg=self.colors['surface'],
-                                     fg=self.colors['text'])
-        
-        scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, 
-                                 command=self.waiting_list.yview)
-        self.waiting_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self.waiting_list.config(yscrollcommand=scrollbar.set)
-        
-        # Control buttons
-        btn_frame = ttk.Frame(waiting_card)
-        btn_frame.pack(fill=tk.X, padx=10, pady=10)
-        
-        # Add new patient button
-        ttk.Button(btn_frame,
-                  text="➕ Nouveau Patient",
-                  style="Primary.TButton",
-                  command=self.add_new_patient_to_waiting).pack(side=tk.LEFT, padx=5)
-        
-        ttk.Button(btn_frame,
-                  text="✆ Appeler le Patient",
-                  style="Primary.TButton",
-                  command=self.call_selected_patient).pack(side=tk.LEFT, padx=5)
-        
-        ttk.Button(btn_frame,
-                  text="❌ Retirer Patient",
-                  style="Secondary.TButton",
-                  command=self.remove_from_waiting).pack(side=tk.LEFT, padx=5)
+    # --- Start: Moving update_waiting_list_colors to class level ---
+    def update_waiting_list_colors(self): 
+        """Apply alternating row colors to waiting list."""
+        if hasattr(self, 'waiting_list') and self.waiting_list.winfo_exists():
+            for i in range(self.waiting_list.size()):
+                color = "#f5f5f5" if i % 2 == 0 else "#e0e7ef"
+                self.waiting_list.itemconfig(i, background=color)
+    # --- End: Moving update_waiting_list_colors ---
 
+    # --- Start: Moving create_tooltip to class level ---
+    def create_tooltip(self, widget, text): 
+        tooltip = tk.Toplevel(widget)
+        tooltip.withdraw()
+        tooltip.overrideredirect(True)
+        label = ttk.Label(tooltip, text=text, background="#ffffe0", relief=tk.SOLID, borderwidth=1, font=("Arial", 10))
+        label.pack(ipadx=5, ipady=2)
+
+        def enter(event):
+            x = event.widget.winfo_rootx() + 20
+            y = event.widget.winfo_rooty() + 20
+            tooltip.geometry(f"+{x}+{y}")
+            tooltip.deiconify()
+
+        def leave(event):
+            tooltip.withdraw()
+
+        widget.bind("<Enter>", enter)
+        widget.bind("<Leave>", leave)
+    # --- End: Moving create_tooltip ---
+
+    # --- Start: Indenting add_new_patient_to_waiting (already correct) ---
     def add_new_patient_to_waiting(self):
         """Add new patient directly to waiting list"""
         dialog = tk.Toplevel(self.root)
@@ -1540,7 +1689,9 @@ class DoctorsWaitingRoomApp:
               
         ttk.Button(frame, text="Annuler", 
                   command=dialog.destroy).pack(fill=tk.X, pady=5)
+    # --- End: Indenting add_new_patient_to_waiting ---
 
+    # --- Start: Indenting show_new_patient_dialog ---
     def show_new_patient_dialog(self, parent_dialog):
         """Show dialog for new patient entry"""
         parent_dialog.destroy()
@@ -1580,15 +1731,19 @@ class DoctorsWaitingRoomApp:
                   command=submit).pack(side=tk.RIGHT, padx=5)
         ttk.Button(btn_frame, text="Annuler",
                   command=dialog.destroy).pack(side=tk.RIGHT, padx=5)
+    # --- End: Indenting show_new_patient_dialog ---
 
+    # --- Start: Indenting show_patient_selection ---
     def show_patient_selection(self, parent_dialog):
         """Show dialog for existing patient selection"""
         parent_dialog.destroy()
-        dialog = PatientSelectionDialog(self.root, self.db)
+        dialog = PatientSelectionDialog(self.root, self.db, self.theme)
         self.root.wait_window(dialog.top)
         if dialog.selected_patient:
             self.register_patient_direct(dialog.selected_patient) # Phone number is not available here, will be None by default
+    # --- End: Indenting show_patient_selection ---
 
+    # --- Start: Indenting register_patient_direct ---
     def register_patient_direct(self, name, phone_number=None): # Added phone_number parameter
         """Register patient and add to waiting list directly"""
         try:
@@ -1619,7 +1774,9 @@ class DoctorsWaitingRoomApp:
             messagebox.showerror("Erreur", 
                                "Impossible d'enregistrer le patient. "
                                "Veuillez réessayer plus tard.")
+    # --- End: Indenting register_patient_direct ---
 
+    # --- Start: Indenting call_selected_patient ---
     def call_selected_patient(self):
         """Call selected patient from waiting list"""
         selection = self.waiting_list.curselection()
@@ -1649,7 +1806,9 @@ class DoctorsWaitingRoomApp:
                 
         except sqlite3.Error as e:
             messagebox.showerror("Erreur", f"Erreur de base de données: {e}")
+    # --- End: Indenting call_selected_patient ---
 
+    # --- Start: Indenting register_patient ---
     def register_patient(self, phone_number=None): # Added phone_number parameter (though not used by its original UI)
         # This method might be less used now, but updating for consistency
         name = self.name_entry.get().strip() 
@@ -1684,7 +1843,9 @@ class DoctorsWaitingRoomApp:
             messagebox.showerror("Erreur", 
                                "Impossible d'enregistrer le patient. "
                                "Veuillez réessayer plus tard.")
+    # --- End: Indenting register_patient ---
 
+    # --- Start: Indenting get_patient_visits ---
     def get_patient_visits(self, patient_name):
         """Get all visits for a patient from database."""
         with self.db.get_connection() as conn:
@@ -1700,7 +1861,9 @@ class DoctorsWaitingRoomApp:
                 ORDER BY v.date DESC
             """, (patient_name,))
             return cursor.fetchall()
+    # --- End: Indenting get_patient_visits ---
 
+    # --- Start: Indenting next_patient ---
     def next_patient(self):
         if not self.waiting_queue:
             messagebox.showinfo("Information", "Aucun patient dans la liste d'attente.")
@@ -1727,7 +1890,9 @@ class DoctorsWaitingRoomApp:
         except sqlite3.Error as e:
             messagebox.showerror("Erreur", f"Erreur de base de données: {e}")
             self.waiting_queue.insert(0, patient)  # Put patient back in queue
+    # --- End: Indenting next_patient ---
             
+    # --- Start: Indenting checkout_patient ---
     def checkout_patient(self):
         if not self.with_doctor:
             messagebox.showinfo("Information", "Aucun patient n'est avec le médecin.")
@@ -1735,7 +1900,10 @@ class DoctorsWaitingRoomApp:
 
         patient = self.with_doctor
         self.process_payment()  # Simplified workflow - direct to payment services
+        self.update_displays()  # Ensure dashboard updates after checkout
+    # --- End: Indenting checkout_patient ---
 
+    # --- Start: Indenting process_payment ---
     def process_payment(self):
         if not self.with_doctor:
             messagebox.showinfo("Information", "Aucun patient n'est avec le médecin.")
@@ -1782,9 +1950,12 @@ class DoctorsWaitingRoomApp:
                     f"Paiement: {dialog.total} DA"
                 )
                 self.update_displays()
+                self.update_displays()  # Ensure dashboard updates after payment
         except sqlite3.Error as e:
             messagebox.showerror("Erreur", f"Erreur de base de données: {e}")
+    # --- End: Indenting process_payment ---
 
+    # --- Start: Indenting remove_from_waiting ---
     def remove_from_waiting(self):
         """Remove selected patient from waiting list."""
         selection = self.waiting_list.curselection()
@@ -1835,7 +2006,9 @@ class DoctorsWaitingRoomApp:
                 self.logger.exception(f"Error removing patient from waiting list: {patient}")
                 messagebox.showerror("Erreur",
                                    "Une erreur est survenue lors du retrait du patient.")
+    # --- End: Indenting remove_from_waiting ---
 
+    # --- Start: Indenting show_patient_list (already indented, just adding comment) ---
     def show_patient_list(self, search_term=None):
         """Show patient list dialog, optionally with a pre-filled search term."""
         dialog = PatientListDialog(self.root, self.db)
@@ -1849,12 +2022,14 @@ class DoctorsWaitingRoomApp:
         self.root.wait_window(dialog.top)
         # Removed call to update_all_appointments
         self.update_displays()
+    # --- End: Indenting show_patient_list ---
 
     # Removed show_financial_report method as it's replaced by show_reports
 
     # Removed update_all_appointments method
     # Removed show_appointment_dialog method
 
+    # --- Start: Indenting calculate_avg_wait_time (already indented, just adding comment) ---
     def calculate_avg_wait_time(self):
         """Calculate average waiting time for today's patients"""
         try:
@@ -1871,9 +2046,9 @@ class DoctorsWaitingRoomApp:
                 return f"{int(avg_wait)} min"
         except Exception:
             return "N/A"
+    # --- End: Indenting calculate_avg_wait_time ---
 
-
-
+    # --- Start: Indenting calculate_total_payments (already indented, just adding comment) ---
     def calculate_total_payments(self):
         """Calculate total payments for today"""
         try:
@@ -1888,86 +2063,21 @@ class DoctorsWaitingRoomApp:
                 return result['total'] if result['total'] else 0
         except Exception:
             return 0
+    # --- End: Indenting calculate_total_payments ---
 
-    def get_hourly_visits(self):
-        """Get hourly visit data for chart"""
-        try:
-            with self.db.get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT CAST(strftime('%H', arrived_at) AS INTEGER) as hour,
-                           COUNT(*) as count
-                    FROM visits
-                    WHERE date(arrived_at) = date('now')
-                    GROUP BY hour
-                    ORDER BY hour
-                """)
-                results = cursor.fetchall()
-                
-                # Initialize arrays with numeric hours
-                hours = list(range(8, 19))  # 8am to 18pm (6pm)
-                counts = [0] * len(hours)
-                
-                # Fill in actual counts
-                for row in results:
-                    hour = row['hour']
-                    if 8 <= hour <= 18:  # Only count hours within business hours
-                        counts[hour - 8] = row['count']  # Offset by 8 to match array index
-                        
-                return hours, counts
-        except Exception as e:
-            self.logger.warning(f"Error getting hourly visits: {str(e)}")
-            return [], []
-
-    def load_todays_visits(self, tree):
-        """Load today's visits into treeview"""
-        try:
-            with self.db.get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT 
-                        v.arrived_at,
-                        p.name,
-                        GROUP_CONCAT(s.name) as services,
-                        (strftime('%s', v.checkout_at) - strftime('%s', v.called_at))/60.0 as duration,
-                        v.total_paid,
-                        CASE 
-                            WHEN v.checkout_at IS NOT NULL THEN 'Terminé'
-                            WHEN v.called_at IS NOT NULL THEN 'En consultation'
-                            ELSE 'En attente'
-                        END as status
-                    FROM visits v
-                    JOIN patients p ON v.patient_id = p.patient_id
-                    LEFT JOIN visit_services vs ON v.visit_id = vs.visit_id
-                    LEFT JOIN services s ON vs.service_id = s.service_id
-                    WHERE date(v.arrived_at) = date('now')
-                    GROUP BY v.visit_id
-                    ORDER BY v.arrived_at DESC
-                """)
-                
-                tree.delete(*tree.get_children())
-                for row in cursor.fetchall():
-                    arrival = datetime.strptime(row['arrived_at'], "%Y-%m-%d %H:%M:%S")
-                    duration = f"{int(row['duration'])} min" if row['duration'] else "N/A"
-                    services = row['services'] if row['services'] else "Aucun"
-                    payment = f"{row['total_paid']} DA" if row['total_paid'] else "N/A"
-                    
-                    tree.insert("", "end", values=(
-                        arrival.strftime("%H:%M"),
-                        row['name'],
-                        services,
-                        duration,
-                        payment,
-                        row['status']
-                    ))
-        except Exception as e:
-            self.logger.exception("Error loading today's visits")
+    def on_closing(self):
+        """Clean up resources and close the application"""
+        # Cancel any pending update jobs
+        if hasattr(self, 'update_job') and self.update_job:
+            self.root.after_cancel(self.update_job)
+        self.root.destroy()
 
 if __name__ == "__main__":
     logger = setup_logging()
     try:
         logger.info("Starting application...")
-        root = tk.Tk()
+        # Use ThemedTk and set the theme 'arc'
+        root = ThemedTk(theme="arc") 
         app = DoctorsWaitingRoomApp(root)
         root.mainloop()
     except Exception as e:

@@ -1,27 +1,118 @@
-2025-04-17 00:49:11,905 - db_connection_pool - ERROR - [db_connection_pool.py:120] - Error with pooled connection: no such table: main.users_old_roles
-2025-04-17 00:49:11,913 - database - ERROR - [database.py:47] - Database connection failed
+2025-04-25 16:38:33,395 - __main__ - ERROR - [app.py:1482] - Error updating displays
 Traceback (most recent call last):
-  File "E:\Waiting-room\database.py", line 45, in get_connection
-    yield conn
-  File "E:\Waiting-room\database.py", line 188, in add_audit_log
-    """, (user_id, action, now, details))
-sqlite3.OperationalError: no such table: main.users_old_roles
-2025-04-17 00:49:11,922 - database - ERROR - [database.py:193] - Failed to add audit log entry (using pooled connection) for user 1, action call_patient. Error: Failed to connect: no such table: main.users_old_roles
-2025-04-17 19:21:01,538 - db_connection_pool - ERROR - [db_connection_pool.py:120] - Error with pooled connection: no such table: main.users_old_roles
-2025-04-17 19:21:02,158 - database - ERROR - [database.py:47] - Database connection failed
+  File "E:\salle_attente\app.py", line 1464, in update_displays
+    if hasattr(self, 'stat_waiting_value_label') and self.stat_waiting_value_label.winfo_exists():
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'winfo_exists'
+2025-04-25 16:38:33,496 - __main__ - ERROR - [app.py:1482] - Error updating displays
 Traceback (most recent call last):
-  File "E:\Waiting-room\database.py", line 45, in get_connection
-    yield conn
-  File "E:\Waiting-room\database.py", line 185, in add_audit_log
-    cursor.execute("""
-sqlite3.OperationalError: no such table: main.users_old_roles
-2025-04-17 19:21:02,547 - database - ERROR - [database.py:193] - Failed to add audit log entry (using pooled connection) for user 1, action call_patient. Error: Failed to connect: no such table: main.users_old_roles
-2025-04-17 19:23:47,981 - db_connection_pool - ERROR - [db_connection_pool.py:120] - Error with pooled connection: no such table: main.users_old_roles
-2025-04-17 19:23:47,984 - database - ERROR - [database.py:47] - Database connection failed
+  File "E:\salle_attente\app.py", line 1464, in update_displays
+    if hasattr(self, 'stat_waiting_value_label') and self.stat_waiting_value_label.winfo_exists():
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'winfo_exists'
+2025-04-25 16:38:35,636 - __main__ - ERROR - [app.py:1482] - Error updating displays
 Traceback (most recent call last):
-  File "E:\Waiting-room\database.py", line 45, in get_connection
-    yield conn
-  File "E:\Waiting-room\database.py", line 185, in add_audit_log
-    cursor.execute("""
-sqlite3.OperationalError: no such table: main.users_old_roles
-2025-04-17 19:23:48,008 - database - ERROR - [database.py:193] - Failed to add audit log entry (using pooled connection) for user None, action update_patient. Error: Failed to connect: no such table: main.users_old_roles
+  File "E:\salle_attente\app.py", line 1464, in update_displays
+    if hasattr(self, 'stat_waiting_value_label') and self.stat_waiting_value_label.winfo_exists():
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'winfo_exists'
+2025-04-25 16:38:38,141 - __main__ - ERROR - [app.py:1482] - Error updating displays
+Traceback (most recent call last):
+  File "E:\salle_attente\app.py", line 1464, in update_displays
+    if hasattr(self, 'stat_waiting_value_label') and self.stat_waiting_value_label.winfo_exists():
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'winfo_exists'
+2025-04-25 16:38:40,158 - __main__ - ERROR - [app.py:1482] - Error updating displays
+Traceback (most recent call last):
+  File "E:\salle_attente\app.py", line 1464, in update_displays
+    if hasattr(self, 'stat_waiting_value_label') and self.stat_waiting_value_label.winfo_exists():
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'winfo_exists'
+2025-04-25 16:38:42,214 - __main__ - ERROR - [app.py:1482] - Error updating displays
+Traceback (most recent call last):
+  File "E:\salle_attente\app.py", line 1464, in update_displays
+    if hasattr(self, 'stat_waiting_value_label') and self.stat_waiting_value_label.winfo_exists():
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'winfo_exists'
+2025-04-25 16:38:48,078 - __main__ - ERROR - [app.py:1482] - Error updating displays
+Traceback (most recent call last):
+  File "E:\salle_attente\app.py", line 1464, in update_displays
+    if hasattr(self, 'stat_waiting_value_label') and self.stat_waiting_value_label.winfo_exists():
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'winfo_exists'
+2025-04-25 16:38:52,058 - __main__ - ERROR - [app.py:1482] - Error updating displays
+Traceback (most recent call last):
+  File "E:\salle_attente\app.py", line 1464, in update_displays
+    if hasattr(self, 'stat_waiting_value_label') and self.stat_waiting_value_label.winfo_exists():
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'winfo_exists'
+2025-04-25 16:38:54,112 - __main__ - ERROR - [app.py:1482] - Error updating displays
+Traceback (most recent call last):
+  File "E:\salle_attente\app.py", line 1464, in update_displays
+    if hasattr(self, 'stat_waiting_value_label') and self.stat_waiting_value_label.winfo_exists():
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'winfo_exists'
+2025-04-25 16:38:56,817 - __main__ - ERROR - [app.py:1482] - Error updating displays
+Traceback (most recent call last):
+  File "E:\salle_attente\app.py", line 1464, in update_displays
+    if hasattr(self, 'stat_waiting_value_label') and self.stat_waiting_value_label.winfo_exists():
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'winfo_exists'
+2025-04-25 16:38:58,913 - __main__ - ERROR - [app.py:1482] - Error updating displays
+Traceback (most recent call last):
+  File "E:\salle_attente\app.py", line 1464, in update_displays
+    if hasattr(self, 'stat_waiting_value_label') and self.stat_waiting_value_label.winfo_exists():
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'winfo_exists'
+2025-04-25 16:38:58,950 - __main__ - ERROR - [app.py:1482] - Error updating displays
+Traceback (most recent call last):
+  File "E:\salle_attente\app.py", line 1464, in update_displays
+    if hasattr(self, 'stat_waiting_value_label') and self.stat_waiting_value_label.winfo_exists():
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'winfo_exists'
+2025-04-25 16:39:00,665 - __main__ - ERROR - [app.py:1482] - Error updating displays
+Traceback (most recent call last):
+  File "E:\salle_attente\app.py", line 1464, in update_displays
+    if hasattr(self, 'stat_waiting_value_label') and self.stat_waiting_value_label.winfo_exists():
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'winfo_exists'
+2025-04-25 16:39:01,271 - __main__ - ERROR - [app.py:1482] - Error updating displays
+Traceback (most recent call last):
+  File "E:\salle_attente\app.py", line 1464, in update_displays
+    if hasattr(self, 'stat_waiting_value_label') and self.stat_waiting_value_label.winfo_exists():
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'winfo_exists'
+2025-04-25 16:39:03,291 - __main__ - ERROR - [app.py:1482] - Error updating displays
+Traceback (most recent call last):
+  File "E:\salle_attente\app.py", line 1464, in update_displays
+    if hasattr(self, 'stat_waiting_value_label') and self.stat_waiting_value_label.winfo_exists():
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'winfo_exists'
+2025-04-25 16:39:05,309 - __main__ - ERROR - [app.py:1482] - Error updating displays
+Traceback (most recent call last):
+  File "E:\salle_attente\app.py", line 1464, in update_displays
+    if hasattr(self, 'stat_waiting_value_label') and self.stat_waiting_value_label.winfo_exists():
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'winfo_exists'
+2025-04-25 16:39:07,336 - __main__ - ERROR - [app.py:1482] - Error updating displays
+Traceback (most recent call last):
+  File "E:\salle_attente\app.py", line 1464, in update_displays
+    if hasattr(self, 'stat_waiting_value_label') and self.stat_waiting_value_label.winfo_exists():
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'winfo_exists'
+2025-04-25 17:18:21,809 - root - ERROR - [app.py:2083] - Unhandled exception occurred
+Traceback (most recent call last):
+  File "E:\salle_attente\app.py", line 2080, in <module>
+    app = DoctorsWaitingRoomApp(root)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\salle_attente\app.py", line 682, in __init__
+    self.show_login()
+  File "E:\salle_attente\app.py", line 700, in show_login
+    self.setup_application()
+  File "E:\salle_attente\app.py", line 725, in setup_application
+    self.setup_ui()
+  File "E:\salle_attente\app.py", line 953, in setup_ui
+    self.show_dashboard()
+  File "E:\salle_attente\app.py", line 1078, in show_dashboard
+    self.create_stat_card(stats_frame,
+TypeError: DoctorsWaitingRoomApp.create_stat_card() missing 1 required positional argument: 'column'
