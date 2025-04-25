@@ -92,17 +92,17 @@ jobs:
           echo OutputDir=Output >> installer.iss
           echo. >> installer.iss
           echo [Files] >> installer.iss
-          REM Include all files from the PyInstaller output directory
-          echo Source: "dist\app\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs >> installer.iss
-          REM Include asset files
+          REM *** CHANGE HERE: Point directly to the dist folder output by PyInstaller ***
+          echo Source: "dist\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs >> installer.iss
+          REM Include asset files - Ensure this path is correct relative to the repo root
           echo Source: "assets\*"; DestDir: "{app}\assets"; Flags: recursesubdirs createallsubdirs >> installer.iss
-          REM Include the database file, but don't overwrite if it exists (e.g., during repair/reinstall)
+          REM Include the database file - Ensure this path is correct relative to the repo root
           echo Source: "medical_office.db"; DestDir: "{app}"; Flags: onlyifdoesntexist >> installer.iss
           echo. >> installer.iss
           echo [Icons] >> installer.iss
-          REM Create Start Menu icon
+          REM Create Start Menu icon - Assumes the main executable is named app.exe
           echo Name: "{group}\Cabinet Medical"; Filename: "{app}\app.exe" >> installer.iss
-          REM Create Desktop icon (optional, consider user preference)
+          REM Create Desktop icon (optional, consider user preference) - Assumes the main executable is named app.exe
           echo Name: "{commondesktop}\Cabinet Medical"; Filename: "{app}\app.exe"; Tasks: desktopicon >> installer.iss
           echo. >> installer.iss
           echo [Tasks] >> installer.iss
@@ -110,14 +110,14 @@ jobs:
           echo Name: desktopicon; Description: "Create a desktop icon"; GroupDescription: "Additional icons:"; Flags: unchecked >> installer.iss
           echo. >> installer.iss
           echo [Run] >> installer.iss
-          REM Optionally run the application after install
+          REM Optionally run the application after install - Assumes the main executable is named app.exe
           REM echo Filename: "{app}\app.exe"; Description: "Launch Cabinet Medical"; Flags: nowait postinstall skipifsilent >> installer.iss
 
       # Step 7: Compile the Inno Setup script to create the installer
       # Assumes default Inno Setup installation path
       # Explicitly use cmd shell to avoid PowerShell parsing issues
       - name: Build Installer
-        shell: cmd # <-- Add this line
+        shell: cmd
         run: |
           "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
         # Fails the workflow if this step errors
