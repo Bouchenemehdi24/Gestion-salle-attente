@@ -1,0 +1,50 @@
+name: Build Windows Installer
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  PYTHON_VERSION: 3.10
+
+jobs:
+  build-windows-installer:
+    runs-on: windows-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -e .
+        
+    - name: Create Python environment
+      run: |
+        python -m venv .venv
+        .venv\Scripts\activate
+        
+    - name: Build MSI Installer
+      uses: msix-action@v3
+      with:
+        path: ./
+        package_name: "your-package-name"  # Replace with your package name
+        package_version: $(python -m setuptools_scm get-version --format=semver)
+        package_publisher: "Your Organization"  # Replace with your organization name
+        package_description: "Medical Office Management Application"
+        package_icon: "assets/logo.ico"
+        postinstall: postinstall.ps1
+        
+    - name: Upload MSI Installer as an Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: windows-installer
+        path: ./*.msi
