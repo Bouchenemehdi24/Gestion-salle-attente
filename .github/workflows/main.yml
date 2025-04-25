@@ -55,7 +55,9 @@ jobs:
 
       # Step 4: Install Inno Setup using Chocolatey
       # --no-progress reduces log output, -y confirms automatically
+      # Using cmd shell for potentially better compatibility with choco
       - name: Install Inno Setup
+        shell: cmd # Explicitly use cmd for choco
         run: |
           choco install innosetup --no-progress -y
         # Fails the workflow if this step errors
@@ -113,7 +115,9 @@ jobs:
 
       # Step 7: Compile the Inno Setup script to create the installer
       # Assumes default Inno Setup installation path
+      # Explicitly use cmd shell to avoid PowerShell parsing issues
       - name: Build Installer
+        shell: cmd # <-- Add this line
         run: |
           "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
         # Fails the workflow if this step errors
@@ -146,4 +150,3 @@ jobs:
         env:
           # The GITHUB_TOKEN is required to interact with the GitHub API
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
