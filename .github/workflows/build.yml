@@ -2,71 +2,45 @@ name: Build Windows Installer
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main ] # Trigger on push to the main branch
   pull_request:
-    branches: [ main ]
-  release:
-    types: [created]
+    branches: [ main ] # Optional: Trigger on pull requests to main
+  workflow_dispatch: # Allow manual triggering
 
 jobs:
   build:
-    runs-on: windows-latest
-    
+    runs-on: windows-latest # Use a Windows runner
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python 3.10
-      uses: actions/setup-python@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
       with:
-        python-version: '3.10'
-        cache: 'pip'
-    
-    - name: Install Python dependencies
+        python-version: '3.10' # Specify your desired Python version
+
+    - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install pyinstaller
-    
-    - name: Install Inno Setup
-      run: |
-        choco install innosetup -y
-    
-    - name: Build with PyInstaller
-      run: |
-        pyinstaller app.spec --noconfirm --clean
-    
-    - name: Create Inno Setup Script
-      run: |
-        echo "[Setup]" > installer.iss
-        echo "AppName=Cabinet Medical" >> installer.iss
-        echo "AppVersion=0.1" >> installer.iss
-        echo "DefaultDirName={autopf}\Cabinet Medical" >> installer.iss
-        echo "DefaultGroupName=Cabinet Medical" >> installer.iss
-        echo "OutputBaseFilename=CabinetMedical_Setup" >> installer.iss
-        echo "Compression=lzma" >> installer.iss
-        echo "SolidCompression=yes" >> installer.iss
-        echo. >> installer.iss
-        echo "[Files]" >> installer.iss
-        echo "Source: ""dist\app\*""; DestDir: ""{app}""; Flags: recursesubdirs" >> installer.iss
-        echo "Source: ""assets\*""; DestDir: ""{app}\assets""; Flags: recursesubdirs" >> installer.iss
-        echo "Source: ""medical_office.db""; DestDir: ""{app}""; Flags: onlyifdoesntexist" >> installer.iss
-        echo. >> installer.iss
-        echo "[Icons]" >> installer.iss
-        echo "Name: ""{group}\Cabinet Medical""; Filename: ""{app}\app.exe""" >> installer.iss
-        echo "Name: ""{commondesktop}\Cabinet Medical""; Filename: ""{app}\app.exe""" >> installer.iss
-    
-    - name: Build Installer
-      run: |
-        "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
-    
-    - name: Upload Installer
-      uses: actions/upload-artifact@v3
+        pip install pyinstaller # Install PyInstaller
+
+    - name: Run PyInstaller
+      run: pyinstaller MyMedicalApp.spec
+      # This creates the bundled app in dist/salle_attente_cabinet_medical
+
+    - name: Set up Inno Setup
+      uses: Mincka/inno-setup-action@v1
+      # This action downloads and adds ISCC (Inno Setup Compiler) to the PATH
+
+    - name: Compile Inno Setup script
+      run: iscc setup.iss
+      # This uses the setup.iss script to create the installer
+      # The output installer (CabinetMedicalSetup.exe) will be in the 'dist' folder (defined in setup.iss)
+
+    - name: Upload Installer Artifact
+      uses: actions/upload-artifact@v4
       with:
-        name: CabinetMedical-Installer
-        path: Output/CabinetMedical_Setup.exe
-        
-    - name: Upload to Release
-      if: github.event_name == 'release'
-      uses: softprops/action-gh-release@v1
-      with:
-        files: Output/CabinetMedical_Setup.exe
+        name: CabinetMedicalSetup-${{ github.sha }} # Name the artifact uniquely
+        path: dist/CabinetMedicalSetup.exe # Path to the generated installer
