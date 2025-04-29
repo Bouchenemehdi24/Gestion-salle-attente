@@ -47,7 +47,7 @@ exe = EXE(pyz,
           upx_exclude=[],
           runtime_tmpdir=None,
           console=False, # Set to False for GUI applications
-          icon='app_icon.ico') # Using the .ico file for the executable
+          icon='icon.png') # Use the .png file for the executable
 
 # If you want a single executable file, uncomment the 'coll' line below
 # and comment out the 'exe' line above. Single-file executables might start slower.
